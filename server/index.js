@@ -30,10 +30,10 @@ const app = express();
 // 1. Request timer — must be first to capture full processing time
 app.use(requestTimer);
 
-// 2. CORS — allow frontend on different origin (Vercel)
+// 2. CORS — strictly allow the Vercel frontend origin
 app.use(cors({
-  origin: process.env.FRONTEND_URL || '*',
-  methods: ['GET', 'POST'],
+  origin: process.env.FRONTEND_URL || 'https://aizen-rosy.vercel.app',
+  methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
