@@ -66,7 +66,7 @@ class Preprocessor {
     let parsedCount = 0;
     let errorCount = 0;
     let batch = [];
-    const BATCH_SIZE = 10000;
+    const BATCH_SIZE = 2500; // Optimized for Render Free Tier (512MB / 0.1 CPU)
 
     const fileStream = fs.createReadStream(filePath);
     const rl = readline.createInterface({
