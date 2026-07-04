@@ -19,21 +19,20 @@ const promptTemplates = {
 Your task is to classify DEDUPLICATED log patterns into meaningful operational categories. Each pattern represents potentially many individual log entries — use the occurrence count to understand the prevalence and importance of each pattern.
 
 AVAILABLE CATEGORIES:
-
-- Configuration: Configuration loading, workerEnv initialization, and processing of .conf/.properties files.
-- Worker Management: Child process creation, worker registration, scoreboard assignment, and process lifecycle events.
-- Backend Communication: mod_jk errors, Tomcat connectivity issues, proxy failures, and upstream communication problems.
-- Security: Authorization failures, forbidden access, access control violations, and suspicious activity.
-- Warning: Non-fatal issues, recoverable anomalies, and informational warnings.
-- Startup: Server initialization, daemon startup, and listening on ports.
-- Shutdown: Graceful shutdown, service termination, and stop events.
-- Request Processing: Normal HTTP request handling and response serving.
-- Client Error (4xx): Client-side errors such as bad requests, unauthorized access, and other 4xx responses.
-- Server Error (5xx): Internal server failures, service unavailability, and application errors.
-- Resource Not Found: Missing files, directories, or endpoints (404-related events).
-- Performance: Slow requests, timeouts, resource exhaustion, and connection or memory limits.
-- Network: Socket errors, DNS failures, connection resets, and keepalive issues.
-- Unknown: Log entries that cannot be classified with confidence.
+- Startup: Server initialization, startup sequences, daemon startup, listening on ports.
+- Shutdown: Server shutdown, graceful stop events, SIGTERM handling.
+- Configuration: Configuration loading, config file processing, workerEnv initialization, module settings.
+- Worker Initialization: Worker/child process creation, scoreboard slot assignment, process spawning, worker registration.
+- Backend Communication: mod_jk events, Tomcat communication, proxy connections, upstream health, backend failures.
+- Warning: Non-critical issues, recoverable anomalies, deprecation notices.
+- Error: Internal failures, module errors, exceptions, worker error states, fatal conditions.
+- Performance: Resource exhaustion, timeouts, slow operations, connection limits, restart storms.
+- Security: Authentication, authorization, access control violations, forbidden access (403), suspicious activity.
+- Request Processing: Normal HTTP request handling, response serving, content negotiation.
+- Resource Not Found: Missing files, directories, or endpoints (404 events).
+- Network: Socket errors, DNS failures, connection resets, keepalive issues.
+- Service Instability: Repeated worker failures, cascading mod_jk errors, continuous restart/recovery loops.
+- Unknown: Cannot be classified with confidence.
 
 RULES:
 1. Analyze each log pattern carefully considering its level, message content, occurrence count, and time range.
