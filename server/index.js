@@ -33,8 +33,8 @@ app.use(requestTimer);
 // 2. CORS — strictly allow the Vercel frontend origin
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'https://aizen-rosy.vercel.app',
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: '*',
+  allowedHeaders: '*',
 }));
 
 // 3. Body parsing
