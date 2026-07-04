@@ -19,21 +19,21 @@ const promptTemplates = {
 Your task is to classify DEDUPLICATED log patterns into meaningful operational categories. Each pattern represents potentially many individual log entries — use the occurrence count to understand the prevalence and importance of each pattern.
 
 AVAILABLE CATEGORIES:
-- Startup: Server initialization, startup sequences, listening on ports
-- Shutdown: Server shutdown, graceful stop events, SIGTERM handling
-- Configuration: Configuration loading, config file processing, module settings
-- Module Lifecycle: Module initialization/loading (mod_jk, mod_ssl, etc.), module-level events
-- Worker Management: Worker/child process creation, scoreboard slots, MPM events, process recycling
-- Request Processing: Normal HTTP request handling, response serving, content negotiation
-- Client Error (4xx): Client-side errors — bad requests, unauthorized, forbidden, not found (400-499)
-- Server Error (5xx): Server-side failures — internal errors, bad gateway, service unavailable (500-599)
-- Resource Not Found: Missing files, directories, or endpoints (404-specific patterns)
-- Backend Communication: Proxy/backend connections (Tomcat, mod_jk), upstream health, load balancing
-- Performance: Resource usage, timeouts, slow operations, connection limits, memory warnings
-- Security: Authentication, authorization, access control, SSL/TLS events, suspicious patterns
-- Network: Connection resets, DNS resolution, socket errors, keepalive events
-- Warning: Non-critical issues, deprecation notices, recoverable anomalies
-- Unknown: Cannot be classified with confidence
+
+- Configuration: Configuration loading, workerEnv initialization, and processing of .conf/.properties files.
+- Worker Management: Child process creation, worker registration, scoreboard assignment, and process lifecycle events.
+- Backend Communication: mod_jk errors, Tomcat connectivity issues, proxy failures, and upstream communication problems.
+- Security: Authorization failures, forbidden access, access control violations, and suspicious activity.
+- Warning: Non-fatal issues, recoverable anomalies, and informational warnings.
+- Startup: Server initialization, daemon startup, and listening on ports.
+- Shutdown: Graceful shutdown, service termination, and stop events.
+- Request Processing: Normal HTTP request handling and response serving.
+- Client Error (4xx): Client-side errors such as bad requests, unauthorized access, and other 4xx responses.
+- Server Error (5xx): Internal server failures, service unavailability, and application errors.
+- Resource Not Found: Missing files, directories, or endpoints (404-related events).
+- Performance: Slow requests, timeouts, resource exhaustion, and connection or memory limits.
+- Network: Socket errors, DNS failures, connection resets, and keepalive issues.
+- Unknown: Log entries that cannot be classified with confidence.
 
 RULES:
 1. Analyze each log pattern carefully considering its level, message content, occurrence count, and time range.
