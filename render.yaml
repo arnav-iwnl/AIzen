@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: aizen-backend
+    env: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: NVIDIA_API_KEY
+        sync: false
+      - key: OPENAI_BASE_URL
+        value: https://integrate.api.nvidia.com/v1

@@ -1,0 +1,25 @@
+{
+  "name": "aizen-backend",
+  "version": "1.0.0",
+  "description": "AIzen - AI-Powered SIEM Log Intelligence Engine",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "keywords": ["siem", "ai", "log-analysis", "security"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "multer": "^1.4.5-lts.1",
+    "winston": "^3.17.0",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
