@@ -12,7 +12,7 @@ AIzen is an AI-powered SIEM (Security Information and Event Management) platform
 
 ## Tech Stack
 
-- **Frontend:** React, Vite, Reshaped UI, Lucide React
+- **Frontend:** Vite
 - **Backend:** Node.js, Express
 - **AI Provider:** Multi-model routing (Google Gemini as primary, with NVIDIA NIM / OpenAI compatibility for fallback)
 
@@ -21,6 +21,7 @@ AIzen is an AI-powered SIEM (Security Information and Event Management) platform
 ### Prerequisites
 - Node.js 18+
 - A Google Gemini API key
+- Nvidia NIM API key (optional)
 
 ### 1. Backend Setup
 ```bash

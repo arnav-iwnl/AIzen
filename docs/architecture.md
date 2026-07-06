@@ -57,7 +57,7 @@ The `ContextSelector` solves this by **never sending raw logs to the LLM**. Inst
 The system uses native JSON response mode (`response_format: { type: 'json_object' }`) to guarantee structured output. The `ResponseParser` handles edge cases (like trailing commas, markdown code fences, or embedded arrays) to ensure the UI always receives valid data. Prompt constraints are tightly enforced to prevent token limit truncations on massive datasets.
 
 ### 4. Frontend Dashboard
-Built with Vite, React, and Reshaped UI, the dashboard orchestrates the APIs in a wizard-like flow. It visually connects the classification results, incident timeline, and root cause recovery plan into a single coherent incident report.
+Built with Vite, the dashboard orchestrates the APIs in a wizard-like flow. It visually connects the classification results, incident timeline, and root cause recovery plan into a single coherent incident report.
 
 ### 5. Multi-Model AI Routing
 AIzen features an intelligent fallback mechanism. If the primary model fails or experiences rate limits, `AIClient` automatically fails over to an alternative provider via an OpenAI-compatible endpoint (like NVIDIA NIM's DeepSeek/Mistral hosting).
