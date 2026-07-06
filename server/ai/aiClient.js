@@ -18,32 +18,85 @@ class AIClient {
     const isNvidiaModel = !requestedModel.toLowerCase().includes('gemini');
 
     try {
+      // let result;
       if (isNvidiaModel) {
-        return await this._callNvidiaNim(requestedModel, systemPrompt, userPrompt, options);
+        result = await this._callNvidiaNim(requestedModel, systemPrompt, userPrompt, options);
       } else {
-        return await this._callGemini(requestedModel, systemPrompt, userPrompt, options);
+        result = await this._callGemini(requestedModel, systemPrompt, userPrompt, options);
       }
+      // this._saveApiCall(requestedModel, systemPrompt, userPrompt, result);
+      // return result;
     } catch (primaryError) {
       logger.warn(`Primary model (${requestedModel}) failed: ${primaryError.message}. Attempting fallback safe case...`);
 
       // Fallback safe case
       try {
+        let result;
+        let fallbackModel;
         if (isNvidiaModel) {
           // Fallback to Gemini
-          return await this._callGemini('gemini-2.5-flash', systemPrompt, userPrompt, options);
+          fallbackModel = 'gemini-2.5-flash';
+          result = await this._callGemini(fallbackModel, systemPrompt, userPrompt, options);
         } else {
-          // Fallback to NVIDIA NIM (DeepSeek)
+          // Fallback to NVIDIA NIM 
           if (!this.nvidiaApiKey || this.nvidiaApiKey === 'your_nvidia_api_key_here') {
             throw new Error('NVIDIA API Key not configured for fallback.');
           }
-          return await this._callNvidiaNim('mistralai/mistral-small-4-119b-2603', systemPrompt, userPrompt, options);
+          fallbackModel = 'mistralai/mistral-small-4-119b-2603';
+          result = await this._callNvidiaNim(fallbackModel, systemPrompt, userPrompt, options);
         }
+        // this._saveApiCall(fallbackModel, systemPrompt, userPrompt, result);
+        // return result;
       } catch (fallbackError) {
         logger.error(`Fallback model also failed: ${fallbackError.message}`);
         throw new Error(`AI request failed after fallback. Primary error: ${primaryError.message}. Fallback error: ${fallbackError.message}`);
       }
     }
   }
+
+  // _saveApiCall(model, systemPrompt, userPrompt, response) {
+  //   try {
+  //     const fs = require('fs');
+  //     const path = require('path');
+  //     const mocksDir = path.join(__dirname, '../../mocks/api_calls');
+  //     if (!fs.existsSync(mocksDir)) {
+  //       fs.mkdirSync(mocksDir, { recursive: true });
+  //     }
+  //     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+  //     // Attempt to parse the raw text output from the LLM into a JSON object
+  //     // so the mock response perfectly mimics the frontend's expected data structure.
+  //     let parsedData = response.text;
+  //     try {
+  //       if (response && response.text) {
+  //         let text = response.text.trim();
+  //         if (text.startsWith('```json')) {
+  //           text = text.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+  //         } else if (text.startsWith('```')) {
+  //           text = text.replace(/^```\n?/, '').replace(/\n?```$/, '');
+  //         }
+  //         parsedData = JSON.parse(text);
+  //       }
+  //     } catch (e) {
+  //       // Fallback to raw text if it's not valid JSON
+  //       parsedData = response.text;
+  //     }
+
+  //     // Wrap it in the standard responseFormatter structure
+  //     const formattedResponse = {
+  //       success: true,
+  //       message: "AI request completed successfully",
+  //       processingTimeMs: 420, // Arbitrary mock value
+  //       data: parsedData
+  //     };
+
+  //     const filePath = path.join(mocksDir, `call_${timestamp}.json`);
+  //     fs.writeFileSync(filePath, JSON.stringify(formattedResponse, null, 2));
+  //     logger.debug(`Saved formatted API call to ${filePath}`);
+  //   } catch (err) {
+  //     logger.error(`Failed to save formatted API call: ${err.message}`);
+  //   }
+  // }
 
   async _callGemini(model, systemPrompt, userPrompt, options) {
     if (!this.geminiApiKey || this.geminiApiKey === 'your_gemini_api_key_here') {
@@ -165,7 +218,7 @@ class AIClient {
   }
 
   isConfigured() {
-    return Boolean(this.geminiApiKey && this.geminiApiKey !== 'your_gemini_api_key_here');
+    return Boolean(this.geminiApiKey && this.geminiApiKey !== 'your_gemini_api_key_here' || this.nvidiaApiKey && this.nvidiaApiKey !== 'your_nvidia_api_key_here');
   }
 
   getInfo() {

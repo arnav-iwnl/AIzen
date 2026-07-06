@@ -32,7 +32,7 @@ app.use(requestTimer);
 
 // 2. CORS — strictly allow the Vercel frontend origin
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'https://aizen-rosy.vercel.app',
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
@@ -95,7 +95,7 @@ async function startServer() {
     if (aiClient.isConfigured()) {
       logger.info(`AI configured: ${aiClient.getInfo().provider} / ${aiClient.getInfo().model}`);
     } else {
-      logger.warn('AI not configured — set NVIDIA_NIM_API_KEY in .env to enable AI features');
+      logger.warn('AI not configured — set NVIDIA_API_KEY in .env to enable AI features');
     }
 
     // Start listening

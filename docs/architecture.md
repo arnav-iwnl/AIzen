@@ -62,6 +62,9 @@ Built with Vite, React, and Reshaped UI, the dashboard orchestrates the APIs in 
 ### 5. Multi-Model AI Routing
 AIzen features an intelligent fallback mechanism. If the primary model fails or experiences rate limits, `AIClient` automatically fails over to an alternative provider via an OpenAI-compatible endpoint (like NVIDIA NIM's DeepSeek/Mistral hosting).
 
+### 6. AI Request Interception & Mocking (Testing)
+For continuous integration and offline testing, the `AIClient` is equipped with an interception layer. Every actual API request sent to the LLM (including the final system prompt, user prompt, and model configuration) along with the raw response is automatically logged and saved as a timestamped JSON file in `mocks/api_calls/`. This creates a reliable repository of real-world test data to validate frontend parsing and edge-case handling without consuming additional API credits.
+
 ## Tech Stack
 - **Frontend:** React, Vite, Reshaped UI v4, Lucide React
 - **Backend:** Node.js, Express, express-rate-limit, multer
