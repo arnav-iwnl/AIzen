@@ -18,14 +18,15 @@ class AIClient {
     const isNvidiaModel = !requestedModel.toLowerCase().includes('gemini');
 
     try {
-      // let result;
+      let result;
       if (isNvidiaModel) {
         result = await this._callNvidiaNim(requestedModel, systemPrompt, userPrompt, options);
       } else {
         result = await this._callGemini(requestedModel, systemPrompt, userPrompt, options);
       }
+      // Uncomment the line below to save API calls locally for testing
       // this._saveApiCall(requestedModel, systemPrompt, userPrompt, result);
-      // return result;
+      return result;
     } catch (primaryError) {
       logger.warn(`Primary model (${requestedModel}) failed: ${primaryError.message}. Attempting fallback safe case...`);
 
@@ -45,8 +46,9 @@ class AIClient {
           fallbackModel = 'mistralai/mistral-small-4-119b-2603';
           result = await this._callNvidiaNim(fallbackModel, systemPrompt, userPrompt, options);
         }
+        // Uncomment the line below to save API calls locally for testing
         // this._saveApiCall(fallbackModel, systemPrompt, userPrompt, result);
-        // return result;
+        return result;
       } catch (fallbackError) {
         logger.error(`Fallback model also failed: ${fallbackError.message}`);
         throw new Error(`AI request failed after fallback. Primary error: ${primaryError.message}. Fallback error: ${fallbackError.message}`);
@@ -63,9 +65,7 @@ class AIClient {
   //       fs.mkdirSync(mocksDir, { recursive: true });
   //     }
   //     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-
-  //     // Attempt to parse the raw text output from the LLM into a JSON object
-  //     // so the mock response perfectly mimics the frontend's expected data structure.
+  //
   //     let parsedData = response.text;
   //     try {
   //       if (response && response.text) {
@@ -78,18 +78,16 @@ class AIClient {
   //         parsedData = JSON.parse(text);
   //       }
   //     } catch (e) {
-  //       // Fallback to raw text if it's not valid JSON
   //       parsedData = response.text;
   //     }
-
-  //     // Wrap it in the standard responseFormatter structure
+  //
   //     const formattedResponse = {
   //       success: true,
   //       message: "AI request completed successfully",
-  //       processingTimeMs: 420, // Arbitrary mock value
+  //       processingTimeMs: 420,
   //       data: parsedData
   //     };
-
+  //
   //     const filePath = path.join(mocksDir, `call_${timestamp}.json`);
   //     fs.writeFileSync(filePath, JSON.stringify(formattedResponse, null, 2));
   //     logger.debug(`Saved formatted API call to ${filePath}`);
