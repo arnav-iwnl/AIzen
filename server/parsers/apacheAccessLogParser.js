@@ -43,17 +43,17 @@ class ApacheAccessLogParser extends BaseParser {
 
     const [, ip, timestampStr, request, statusStr, size, referrer, userAgent] = match;
     const status = parseInt(statusStr, 10);
-    
+
     let level = 'info';
     if (status >= 500) level = 'error';
     else if (status >= 400) level = 'warn';
 
     const timestamp = this.parseAccessTimestamp(timestampStr);
-    
+
     const reqParts = request.split(' ');
     const method = reqParts[0] || 'UNKNOWN';
     const url = reqParts[1] || '';
-    
+
     const message = `${method} ${url} - Status ${status}`;
     const fingerprint = generateFingerprint(level, `${method} ${url} ${status}`);
 

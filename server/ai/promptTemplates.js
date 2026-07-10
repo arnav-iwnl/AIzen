@@ -26,7 +26,7 @@ AVAILABLE CATEGORIES:
 - Backend Communication: mod_jk events, Tomcat communication, proxy connections, upstream health, backend failures.
 - Warning: Non-critical issues, recoverable anomalies, deprecation notices.
 - Error: Internal failures, module errors, exceptions, worker error states, fatal conditions.
-- Performance: Resource exhaustion, timeouts, slow operations, connection limits, restart storms.
+- Performance: Resource exhaustion, timeouts, slow operations, connection limits, restart storms. 
 - Security: Authentication, authorization, access control violations, forbidden access (403), suspicious activity.
 - Request Processing: Normal HTTP request handling, response serving, content negotiation.
 - Resource Not Found: Missing files, directories, or endpoints (404 events).
@@ -83,7 +83,7 @@ Respond with a JSON object:
 {
   "timeline": [
     {
-      "timestamp": "ISO 8601 timestamp or time range",
+      "timestamp":"Time in 12hr Format with AM/PM along with date in DD/MM/YYYY",
       "eventTitle": "Short descriptive title",
       "severity": "info|warning|error|critical",
       "summary": "Detailed explanation of what happened",
