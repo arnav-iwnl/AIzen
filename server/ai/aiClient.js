@@ -25,7 +25,7 @@ class AIClient {
         result = await this._callGemini(requestedModel, systemPrompt, userPrompt, options);
       }
       // Uncomment the line below to save API calls locally for testing
-      // this._saveApiCall(requestedModel, systemPrompt, userPrompt, result);
+      this._saveApiCall(requestedModel, systemPrompt, userPrompt, result);
       return result;
     } catch (primaryError) {
       logger.warn(`Primary model (${requestedModel}) failed: ${primaryError.message}. Attempting fallback safe case...`);
@@ -47,7 +47,7 @@ class AIClient {
           result = await this._callNvidiaNim(fallbackModel, systemPrompt, userPrompt, options);
         }
         // Uncomment the line below to save API calls locally for testing
-        // this._saveApiCall(fallbackModel, systemPrompt, userPrompt, result);
+        this._saveApiCall(fallbackModel, systemPrompt, userPrompt, result);
         return result;
       } catch (fallbackError) {
         logger.error(`Fallback model also failed: ${fallbackError.message}`);
@@ -56,45 +56,45 @@ class AIClient {
     }
   }
 
-  // _saveApiCall(model, systemPrompt, userPrompt, response) {
-  //   try {
-  //     const fs = require('fs');
-  //     const path = require('path');
-  //     const mocksDir = path.join(__dirname, '../../mocks/api_calls');
-  //     if (!fs.existsSync(mocksDir)) {
-  //       fs.mkdirSync(mocksDir, { recursive: true });
-  //     }
-  //     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  //
-  //     let parsedData = response.text;
-  //     try {
-  //       if (response && response.text) {
-  //         let text = response.text.trim();
-  //         if (text.startsWith('```json')) {
-  //           text = text.replace(/^```json\n?/, '').replace(/\n?```$/, '');
-  //         } else if (text.startsWith('```')) {
-  //           text = text.replace(/^```\n?/, '').replace(/\n?```$/, '');
-  //         }
-  //         parsedData = JSON.parse(text);
-  //       }
-  //     } catch (e) {
-  //       parsedData = response.text;
-  //     }
-  //
-  //     const formattedResponse = {
-  //       success: true,
-  //       message: "AI request completed successfully",
-  //       processingTimeMs: 420,
-  //       data: parsedData
-  //     };
-  //
-  //     const filePath = path.join(mocksDir, `call_${timestamp}.json`);
-  //     fs.writeFileSync(filePath, JSON.stringify(formattedResponse, null, 2));
-  //     logger.debug(`Saved formatted API call to ${filePath}`);
-  //   } catch (err) {
-  //     logger.error(`Failed to save formatted API call: ${err.message}`);
-  //   }
-  // }
+  _saveApiCall(model, systemPrompt, userPrompt, response) {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const mocksDir = path.join(__dirname, '../../mocks/api_calls');
+      if (!fs.existsSync(mocksDir)) {
+        fs.mkdirSync(mocksDir, { recursive: true });
+      }
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  
+      let parsedData = response.text;
+      try {
+        if (response && response.text) {
+          let text = response.text.trim();
+          if (text.startsWith('```json')) {
+            text = text.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+          } else if (text.startsWith('```')) {
+            text = text.replace(/^```\n?/, '').replace(/\n?```$/, '');
+          }
+          parsedData = JSON.parse(text);
+        }
+      } catch (e) {
+        parsedData = response.text;
+      }
+  
+      const formattedResponse = {
+        success: true,
+        message: "AI request completed successfully",
+        processingTimeMs: 420,
+        data: parsedData
+      };
+  
+      const filePath = path.join(mocksDir, `call_${timestamp}.json`);
+      fs.writeFileSync(filePath, JSON.stringify(formattedResponse, null, 2));
+      logger.debug(`Saved formatted API call to ${filePath}`);
+    } catch (err) {
+      logger.error(`Failed to save formatted API call: ${err.message}`);
+    }
+  }
 
   async _callGemini(model, systemPrompt, userPrompt, options) {
     if (!this.geminiApiKey || this.geminiApiKey === 'your_gemini_api_key_here') {
@@ -120,6 +120,7 @@ class AIClient {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this.geminiApiKey}`;
         const response = await fetch(url, {
           method: 'POST',
+          signal: AbortSignal.timeout(45000),
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(requestBody),
         });
@@ -178,6 +179,7 @@ class AIClient {
         logger.debug(`OpenAI-Compatible API attempt ${attempt}/${this.retryAttempts}`, { model, url: fetchUrl });
         const response = await fetch(fetchUrl, {
           method: 'POST',
+          signal: AbortSignal.timeout(45000),
           headers: {
             'Authorization': `Bearer ${this.nvidiaApiKey}`,
             'Accept': 'application/json',

@@ -121,6 +121,11 @@ class ResponseParser {
         eventTitle: event.eventTitle || event.title || event.event || 'Unnamed Event',
         severity: event.severity || event.level || 'info',
         summary: event.summary || event.description || 'No summary',
+        escalationPath: (event.escalationPath || event.escalation_path || []).map((step) => ({
+          level: step.level || 'info',
+          description: step.description || step.message || step.summary || '',
+          timestamp: step.timestamp || step.time || '',
+        })),
         supportingEvidence: event.supportingEvidence || event.evidence || event.logs || [],
         affectedComponents: event.affectedComponents || event.components || [],
       })),

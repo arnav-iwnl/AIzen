@@ -23,31 +23,78 @@ class TimelineService {
       throw new Error('No logs loaded. Please upload a log file first.');
     }
 
-    logger.info('Generating incident timeline', { options });
+    logger.info('Generating incident timeline via Map-Reduce', { options });
 
-    // Step 1: Build context using context selector (handles dedup + windowing)
-    const context = contextSelector.buildTimelineContext({
-      startTime: options.startTime,
-      endTime: options.endTime,
-      focus: options.focus || 'errors',
+    // Step 1: Prepare batches of patterns
+    const allDeduped = logStore.getDeduped();
+    let targetPatterns = options.focus === 'errors' 
+      ? allDeduped.filter((d) => d.level === 'error' || d.level === 'crit' || d.level === 'warn')
+      : allDeduped;
+
+    const batchSize = require('../config/app.config').logProcessing.timelineBatchSize || 40;
+    const batches = [];
+    for (let i = 0; i < targetPatterns.length; i += batchSize) {
+      batches.push(targetPatterns.slice(i, i + batchSize));
+    }
+
+    if (batches.length === 0) {
+      batches.push([]); // Handle empty case gracefully
+    }
+
+    logger.debug(`Processing ${batches.length} timeline chunks concurrently...`);
+    
+    const aggregatedUsage = { promptTokenCount: 0, candidatesTokenCount: 0, totalTokenCount: 0 };
+    let allEvents = [];
+    let summaries = [];
+
+    // Step 2: Map - Process all chunks concurrently
+    const batchPromises = batches.map(async (batch, batchIdx) => {
+      // Build context for this specific chunk (disable capping inside selector)
+      const context = contextSelector.buildTimelineContext({
+        startTime: options.startTime,
+        endTime: options.endTime,
+        focus: options.focus || 'errors',
+        primaryPatterns: batch,
+        disableCapping: true,
+      });
+
+      const systemPrompt = promptTemplates.timeline.system;
+      const userPrompt = promptTemplates.timeline.buildUserPrompt(context, {
+        focus: options.focus,
+        maxEvents: Math.max(3, Math.floor((options.maxEvents || 20) / batches.length)),
+      });
+
+      const aiResponse = await aiClient.complete(systemPrompt, userPrompt, { model: options.model });
+      const result = responseParser.parseTimeline(aiResponse.text);
+
+      return {
+        events: result.timeline,
+        summary: result.overallSummary,
+        usage: aiResponse.usage || {}
+      };
     });
 
-    // Step 2: Build prompts
-    const systemPrompt = promptTemplates.timeline.system;
-    const userPrompt = promptTemplates.timeline.buildUserPrompt(context, {
-      focus: options.focus,
-      maxEvents: options.maxEvents || 20,
-    });
+    const completedBatches = await Promise.all(batchPromises);
 
-    // Step 3: Call LLM
-    const aiResponse = await aiClient.complete(systemPrompt, userPrompt, { model: options.model });
-    const rawResponse = aiResponse.text;
+    // Step 3: Reduce - Merge results
+    for (const completed of completedBatches) {
+      allEvents.push(...completed.events);
+      if (completed.summary) summaries.push(completed.summary);
+      
+      aggregatedUsage.promptTokenCount += (completed.usage.promptTokenCount || 0);
+      aggregatedUsage.candidatesTokenCount += (completed.usage.candidatesTokenCount || 0);
+      aggregatedUsage.totalTokenCount += (completed.usage.totalTokenCount || 0);
+    }
 
-    // Step 4: Parse and validate response
-    const result = responseParser.parseTimeline(rawResponse);
+    // Sort all merged events chronologically
+    allEvents.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-    // Step 5: Enrich timeline with log store data
-    const enrichedTimeline = result.timeline.map((event, index) => ({
+    // Cap total events if requested
+    if (options.maxEvents && allEvents.length > options.maxEvents) {
+      allEvents = allEvents.slice(0, options.maxEvents);
+    }
+
+    const enrichedTimeline = allEvents.map((event, index) => ({
       sequence: index + 1,
       ...event,
     }));
@@ -56,7 +103,7 @@ class TimelineService {
 
     return {
       timeline: enrichedTimeline,
-      overallSummary: result.overallSummary,
+      overallSummary: summaries.join('\n\n'),
       metadata: {
         totalLogsAnalyzed: logStore.stats.totalLogs,
         uniquePatternsUsed: logStore.stats.uniquePatterns,
@@ -65,7 +112,7 @@ class TimelineService {
         eventsGenerated: enrichedTimeline.length,
       },
       processingTimeMs: processingTime,
-      usage: aiResponse.usage || { promptTokenCount: 0, candidatesTokenCount: 0, totalTokenCount: 0 },
+      usage: aggregatedUsage,
     };
   }
 }

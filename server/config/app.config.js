@@ -27,7 +27,9 @@ const config = {
   logProcessing: {
     maxLogLines: parseInt(process.env.MAX_LOG_LINES, 10) || 50000,
     contextWindowSize: parseInt(process.env.CONTEXT_WINDOW_SIZE, 10) || 100,
-    classificationBatchSize: 25,
+    classificationBatchSize: 150,
+    timelineBatchSize: 1000,
+    rootCauseBatchSize: 1000,
     timelineBucketMinutes: 15,
     rootCauseContextWindow: 5,
   },

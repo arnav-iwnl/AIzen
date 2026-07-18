@@ -89,10 +89,9 @@ class ClassificationService {
     const allResults = [];
     const aggregatedUsage = { promptTokenCount: 0, candidatesTokenCount: 0, totalTokenCount: 0 };
 
-    for (let batchIdx = 0; batchIdx < batches.length; batchIdx++) {
-      const batch = batches[batchIdx];
-      logger.debug(`Processing classification batch ${batchIdx + 1}/${batches.length} (${batch.length} patterns)`);
-
+    // Process all batches concurrently
+    logger.debug(`Processing ${batches.length} classification batches concurrently...`);
+    const batchPromises = batches.map(async (batch, batchIdx) => {
       // Build context from deduplicated patterns
       const context = contextSelector.buildClassificationContext(batch);
 
@@ -104,15 +103,30 @@ class ClassificationService {
       const aiResponse = await aiClient.complete(systemPrompt, userPrompt, { model: options.model });
       const rawResponse = aiResponse.text;
       
-      // Aggregate token usage
-      if (aiResponse.usage) {
-        aggregatedUsage.promptTokenCount += (aiResponse.usage.promptTokenCount || 0);
-        aggregatedUsage.candidatesTokenCount += (aiResponse.usage.candidatesTokenCount || 0);
-        aggregatedUsage.totalTokenCount += (aiResponse.usage.totalTokenCount || 0);
-      }
-
       // Parse and validate response
       const batchResults = responseParser.parseClassification(rawResponse);
+
+      return {
+        batchIdx,
+        batch,
+        batchResults,
+        usage: aiResponse.usage || {}
+      };
+    });
+
+    const completedBatches = await Promise.all(batchPromises);
+
+    // Merge results in correct order
+    // Sort by batchIdx to preserve the original chronological order
+    completedBatches.sort((a, b) => a.batchIdx - b.batchIdx);
+
+    for (const completed of completedBatches) {
+      const { batch, batchResults, usage } = completed;
+
+      // Aggregate token usage
+      aggregatedUsage.promptTokenCount += (usage.promptTokenCount || 0);
+      aggregatedUsage.candidatesTokenCount += (usage.candidatesTokenCount || 0);
+      aggregatedUsage.totalTokenCount += (usage.totalTokenCount || 0);
 
       // Merge results, mapping back to original patterns
       for (let i = 0; i < batch.length; i++) {

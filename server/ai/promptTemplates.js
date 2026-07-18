@@ -16,7 +16,7 @@ const promptTemplates = {
   classification: {
     system: `You are an expert SIEM (Security Information and Event Management) log analyst specializing in Apache server logs.
 
-Your task is to classify DEDUPLICATED log patterns into meaningful operational categories. Each pattern represents potentially many individual log entries — use the occurrence count to understand the prevalence and importance of each pattern.
+Your task is to classify DEDUPLICATED log patterns into meaningful operational categories. Each pattern represents potentially many individual log entries — use the occurrence count to understand the prevalence and importance of each pattern. Also consider the time range of occurrences to assess whether the pattern is a one-off event or a recurring issue. Mention the time of each pattern in your analysis.
 
 AVAILABLE CATEGORIES:
 - Startup: Server initialization, startup sequences, daemon startup, listening on ports.
@@ -66,7 +66,7 @@ Respond with a JSON array. Each element must have:
   timeline: {
     system: `You are a senior SIEM incident analyst specializing in constructing incident timelines from server logs.
 
-Your task is to generate a chronological incident timeline from the provided log data.
+Your task is to generate a chronological incidents' timeline from the provided log data. Pay special attention to the INCIDENT ESCALATION CHAINS section — it shows how errors developed from preceding lower-severity events (info/notice → warning → error).
 
 RULES:
 1. Group related log events into meaningful timeline entries — do NOT just list individual logs.
@@ -77,6 +77,8 @@ RULES:
 6. Identify patterns and correlations between events.
 7. You MUST respond with valid JSON only — no markdown, no explanation outside JSON.
 8. Be extremely concise to avoid exceeding response limits.
+9. Make sure of what IP address is involved in the incidents and mention it in the summary if relevant.
+10. For each error/critical event, populate the "escalationPath" array showing the progression from lower-severity events that preceded the error. Use the INCIDENT ESCALATION CHAINS data provided. Each step should show the level, a brief description, and a timestamp. The path should go from lowest severity to highest (e.g., info → warning → error).
 
 OUTPUT FORMAT:
 Respond with a JSON object:
@@ -87,12 +89,24 @@ Respond with a JSON object:
       "eventTitle": "Short descriptive title",
       "severity": "info|warning|error|critical",
       "summary": "Detailed explanation of what happened",
+      "escalationPath": [
+        { "level": "info", "description": "Brief description of the preceding info/notice event", "timestamp": "Time in 12hr Format" },
+        { "level": "warning", "description": "Brief description of the warning event (if any)", "timestamp": "Time in 12hr Format" },
+        { "level": "error", "description": "Brief description of the error event", "timestamp": "Time in 12hr Format" }
+      ],
       "supportingEvidence": ["Pattern 1 description", "Pattern 2 description"],
       "affectedComponents": ["component names"]
     }
   ],
   "overallSummary": "High-level summary of the entire timeline period"
-}`,
+}
+
+ESCALATION PATH GUIDELINES:
+- Only include escalationPath for events with severity "error" or "critical".
+- For info/warning severity events, set escalationPath to an empty array [].
+- Each step in the path must have "level" (info|notice|warning|error|critical), "description", and "timestamp".
+- The path should show a logical progression: what normal activity was happening, what warnings appeared, and what finally failed.
+- If no preceding lower-severity events are available, include at minimum the error itself as the last step.`,
 
     buildUserPrompt: (context, options = {}) => {
       let prompt = `Analyze the following log data and generate an incident timeline.\n\n`;
@@ -116,13 +130,15 @@ Respond with a JSON object:
 Your task is to analyze the provided log data, identify the most probable root cause of observed issues, and provide evidence-driven conclusions.
 
 RULES:
-1. Identify the root cause — the fundamental reason behind the observed errors/issues.
+1. Identify the root causes of the incidents taken place — the fundamental reason behind the observed errors/issues.
 2. Support your analysis with specific evidence from the logs (reference log patterns, timestamps, and frequencies). Limit evidence to a maximum of 3 findings.
 3. Analyze the causal chain: what happened first, what cascaded from it. Keep it concise.
 4. Assess the impact on system operations and end users.
 5. Provide actionable, specific recommendations. Limit to a maximum of 3 recommendations.
 6. Assign a confidence score (0-100) based on evidence strength.
 7. You MUST respond with valid JSON only — no markdown, no explanation outside JSON. Keep text concise.
+8. Any Security-related findings should be highlighted in the recommendations.
+9. Mention the IP address involved in the incidents if relevant.
 
 OUTPUT FORMAT:
 Respond with a JSON object:
@@ -161,6 +177,29 @@ Respond with a JSON object:
       prompt += `Return ONLY valid JSON.\n\n${context}`;
       return prompt;
     },
+  },
+
+  /**
+   * Feature 3b: Root Cause Synthesis (Map-Reduce)
+   */
+  rootCauseSynthesis: {
+    system: `You are a senior Site Reliability Engineer (SRE).
+Your task is to synthesize multiple mini root-cause analysis reports (which were generated from chunks of a large log file) into a single, cohesive master Root Cause Analysis report.
+
+Merge the evidence, causal chains, and recommendations from the provided chunks. Remove duplicates. Find the overarching patterns.
+Respond with the EXACT same JSON schema as the individual reports:
+{
+  "rootCause": "...",
+  "evidence": [...],
+  "causalChain": [...],
+  "impact": "...",
+  "recommendations": [...],
+  "confidence": 90,
+  "analysisNotes": "..."
+}`,
+    buildUserPrompt: (reportsJson) => {
+      return `Synthesize the following root cause analysis reports into a single master JSON report.\n\nReturn ONLY valid JSON.\n\n${reportsJson}`;
+    }
   },
 };
 

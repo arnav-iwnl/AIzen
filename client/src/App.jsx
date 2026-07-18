@@ -399,6 +399,7 @@ export default function App() {
                     >
                       <option value="gemini-2.5-flash">Google Gemini 2.5 Flash</option>
                       <option value="mistralai/mistral-small-4-119b-2603">Mistral 4</option>
+                      <option value="deepseek-ai/deepseek-v4-flash">DeepSeek V4 Flash</option>
                     </select>
                   </div>
 
@@ -644,6 +645,7 @@ export default function App() {
                           <div className="relative" key={idx}>
                             <div className={`absolute -left-[21px] top-1 w-3 h-3 rounded-full border-2 border-[#0f0f11] ${event.severity === 'critical' ? 'bg-red-500' :
                               event.severity === 'error' ? 'bg-orange-500' :
+                                event.severity === 'warning' ? 'bg-amber-500' :
                                 'bg-blue-500'
                               }`} />
 
@@ -656,6 +658,50 @@ export default function App() {
 
                             <h4 className="font-bold text-white mb-1">{event.eventTitle}</h4>
                             <p className="text-sm text-gray-400 mb-3">{event.summary}</p>
+
+                            {/* ── Escalation Path Stepper ─────────────────── */}
+                            {event.escalationPath?.length > 0 && (
+                              <div className="mb-3 bg-gray-900/60 border border-gray-800 rounded-lg p-3">
+                                <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-2">Escalation Path</p>
+                                <div className="space-y-0">
+                                  {event.escalationPath.map((step, stepIdx) => {
+                                    const dotColor =
+                                      step.level === 'error' || step.level === 'crit' || step.level === 'critical' ? 'bg-red-500' :
+                                      step.level === 'warn' || step.level === 'warning' ? 'bg-amber-500' :
+                                      'bg-blue-500';
+                                    const lineColor =
+                                      step.level === 'error' || step.level === 'crit' || step.level === 'critical' ? 'bg-red-500/30' :
+                                      step.level === 'warn' || step.level === 'warning' ? 'bg-amber-500/30' :
+                                      'bg-blue-500/30';
+                                    const textColor =
+                                      step.level === 'error' || step.level === 'crit' || step.level === 'critical' ? 'text-red-400' :
+                                      step.level === 'warn' || step.level === 'warning' ? 'text-amber-400' :
+                                      'text-blue-400';
+                                    const isLast = stepIdx === event.escalationPath.length - 1;
+
+                                    return (
+                                      <div key={stepIdx} className="flex items-stretch gap-3">
+                                        {/* Dot + connecting line */}
+                                        <div className="flex flex-col items-center w-4 flex-shrink-0">
+                                          <div className={`w-2.5 h-2.5 rounded-full ${dotColor} mt-1.5 flex-shrink-0 ring-2 ring-gray-900`} />
+                                          {!isLast && <div className={`w-0.5 flex-1 min-h-[16px] ${lineColor}`} />}
+                                        </div>
+                                        {/* Step content */}
+                                        <div className={`pb-2 ${isLast ? '' : 'pb-3'}`}>
+                                          <div className="flex items-center gap-2">
+                                            <span className={`text-[10px] font-bold uppercase ${textColor}`}>{step.level}</span>
+                                            {step.timestamp && (
+                                              <span className="text-[10px] text-gray-600 font-mono">{step.timestamp}</span>
+                                            )}
+                                          </div>
+                                          <p className="text-xs text-gray-400 leading-relaxed">{step.description}</p>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
 
                             {event.supportingEvidence?.length > 0 && (
                               <div className="space-y-1 bg-gray-900/50 p-3 rounded-md border border-gray-800">
