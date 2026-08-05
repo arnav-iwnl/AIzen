@@ -87,3 +87,82 @@ export async function analyzeRootCause(symptom, model = null) {
   if (!res.ok) throw new Error('Root cause analysis failed');
   return res.json();
 }
+
+/**
+ * Local incident detection (error bursts, novel templates, escalation chains).
+ * No LLM involved — runs on the backend store in milliseconds.
+ */
+export async function detectIncidents(options = {}) {
+  const res = await fetch(`${API_BASE}/detect/incidents`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(options),
+  });
+  if (!res.ok) throw new Error('Incident detection failed');
+  return res.json();
+}
+
+/**
+ * Open the real-time SSE feed. Returns an EventSource (call .close() to stop).
+ * onEvent receives parsed payloads: { type:'snapshot'|'log'|'alert', ... }.
+ */
+export function openRealtimeStream(onEvent, onError) {
+  const es = new EventSource(`${API_BASE}/realtime/stream`);
+  es.onmessage = (ev) => {
+    try {
+      onEvent(JSON.parse(ev.data));
+    } catch { /* ignore malformed frames */ }
+  };
+  if (onError) es.onerror = onError;
+  return es;
+}
+
+/**
+ * Recent realtime events + alerts + counters.
+ */
+export async function getRealtimeSnapshot() {
+  const res = await fetch(`${API_BASE}/realtime/snapshot`);
+  return res.json();
+}
+
+/**
+ * Clear the realtime feed.
+ */
+export async function clearRealtime() {
+  const res = await fetch(`${API_BASE}/realtime/clear`, { method: 'POST' });
+  return res.json();
+}
+
+/**
+ * List available demo actions.
+ */
+export async function getDemoActions() {
+  const res = await fetch(`${API_BASE}/demo/actions`);
+  return res.json();
+}
+
+/**
+ * Fire `count` lines of a demo action into the realtime feed.
+ */
+export async function triggerDemo(action, count = 1) {
+  const res = await fetch(`${API_BASE}/demo/trigger`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, count }),
+  });
+  if (!res.ok) throw new Error('Demo trigger failed');
+  return res.json();
+}
+
+/**
+ * Start/stop the auto-stream. Body: { running, action?, rate? }
+ */
+export async function controlDemoStream(body) {
+  const res = await fetch(`${API_BASE}/demo/stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error('Stream control failed');
+  return res.json();
+}

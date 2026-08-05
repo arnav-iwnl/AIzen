@@ -16,6 +16,12 @@ Thumbs.db
 *.log
 !data/*.log
 
+# Uploaded log files (may contain sensitive data)
+server/uploads/
+
+# Downloaded training corpora (loghub — GBs, research data)
+training-data/
+
 # Temp
 tmp/
 temp/

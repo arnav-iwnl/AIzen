@@ -2,7 +2,9 @@ const aiClient = require('../ai/aiClient');
 const promptTemplates = require('../ai/promptTemplates');
 const responseParser = require('../ai/responseParser');
 const contextSelector = require('./contextSelector');
+const localTimelineService = require('./localTimelineService');
 const logStore = require('../store/logStore');
+const config = require('../config/app.config');
 const logger = require('../utils/logger');
 
 /**
@@ -21,6 +23,11 @@ class TimelineService {
 
     if (!logStore.isLoaded) {
       throw new Error('No logs loaded. Please upload a log file first.');
+    }
+
+    // Fully local mode (default): deterministic, sub-second, no API keys.
+    if (config.llmMode === 'local') {
+      return localTimelineService.generateTimeline(options);
     }
 
     logger.info('Generating incident timeline via Map-Reduce', { options });

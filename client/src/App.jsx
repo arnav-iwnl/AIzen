@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Upload, Play, CheckCircle, AlertTriangle, Activity,
   Clock, Shield, Zap, BarChart3, RotateCcw, FileText,
-  TrendingUp, Search, Loader2, Download
+  TrendingUp, Search, Loader2, Download, Radar
 } from 'lucide-react';
 import {
   Button, Badge, Card, CardHeader, CardTitle,
@@ -10,8 +10,11 @@ import {
   TabsTrigger, TabsContent
 } from './components/ui';
 import {
-  checkHealth, classifyLogs, generateTimeline, analyzeRootCause, uploadLogFile
+  checkHealth, classifyLogs, generateTimeline, analyzeRootCause, uploadLogFile, detectIncidents
 } from './api';
+import { usePathname, navigate } from './router';
+import RealtimeView from './views/RealtimeView';
+import DemoView from './views/DemoView';
 
 // ── Pipeline Stepper ─────────────────────────────────────────────────────────
 function PipelineStepper({ currentStep, stepStatus }) {
@@ -212,12 +215,14 @@ function PieLegend({ data }) {
 
 // ── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
+  const path = usePathname();
   const [health, setHealth] = useState(null);
   const [stepStatus, setStepStatus] = useState({});
   const [currentStep, setCurrentStep] = useState('upload');
   const [classification, setClassification] = useState(null);
   const [timeline, setTimeline] = useState(null);
   const [rootCause, setRootCause] = useState(null);
+  const [incidents, setIncidents] = useState(null);
   const [error, setError] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [timings, setTimings] = useState({});
@@ -249,6 +254,7 @@ export default function App() {
     setClassification(null);
     setTimeline(null);
     setRootCause(null);
+    setIncidents(null);
     setTimings({});
 
     try {
@@ -267,6 +273,10 @@ export default function App() {
       setClassification(classRes.data);
       setTimings(prev => ({ ...prev, classify: classTime }));
       setStep('classify', 'done');
+
+      // Step 2.5: Local incident detection (no LLM — sub-second)
+      const detRes = await detectIncidents();
+      setIncidents(detRes.data);
 
       // Step 3: Timeline
       setStep('timeline', 'active');
@@ -322,6 +332,29 @@ export default function App() {
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:p-4 focus:bg-purple-900 focus:text-white z-50">
         Skip to main content
       </a>
+
+      {/* ── Top Navigation ─────────────────────────────────────────────── */}
+      <nav className="border-b border-gray-800 bg-black/50 backdrop-blur sticky top-0 z-40 print:hidden" aria-label="Main navigation">
+        <div className="max-w-6xl mx-auto px-6 flex items-center gap-1 overflow-x-auto">
+          {[
+            { route: 'analysis', label: 'Analysis', path: '/' },
+            { route: 'demo', label: 'Demo', path: '/demo' },
+            { route: 'realtime', label: 'Realtime', path: '/realtime' },
+          ].map((item) => {
+            const active = path === item.path || (item.route === 'analysis' && path !== '/demo' && path !== '/realtime');
+            return (
+              <button
+                key={item.route}
+                onClick={() => navigate(item.path)}
+                className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${active ? 'border-purple-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}
+              >
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
       <div className="max-w-6xl mx-auto p-6 space-y-8">
 
         {/* ── Header ──────────────────────────────────────────────────── */}
@@ -350,6 +383,12 @@ export default function App() {
         </header>
 
         <main id="main-content" className="space-y-8 focus:outline-none" tabIndex={-1}>
+          {path === '/realtime' ? (
+            <RealtimeView />
+          ) : path === '/demo' ? (
+            <DemoView />
+          ) : (
+          <>
           {/* ── Pipeline Progress ────────────────────────────────────────── */}
           <div className="print:hidden">
             <PipelineStepper currentStep={currentStep} stepStatus={stepStatus} />
@@ -433,12 +472,12 @@ export default function App() {
                   <div className="text-center space-y-2">
                     <h3 className="text-lg md:text-xl font-bold text-white text-balance px-4">
                       {currentStep === 'upload' && 'Ingesting & parsing logs...'}
-                      {currentStep === 'classify' && 'AI is classifying log entries...'}
+                      {currentStep === 'classify' && 'Classifying log patterns locally...'}
                       {currentStep === 'timeline' && 'Generating incident timeline...'}
                       {currentStep === 'rootcause' && 'Analyzing root cause & recovery...'}
                     </h3>
                     <p className="text-sm text-gray-400 animate-pulse">
-                      This typically takes 10-30 seconds per phase.
+                      Runs fully locally on the trained model — usually under a second.
                     </p>
                   </div>
                 </CardContent>
@@ -476,8 +515,8 @@ export default function App() {
                 <MetricCard label="Avg Confidence" value={`${classification?.summary?.averageConfidence || 0}%`} colorClass="text-emerald-400" icon={TrendingUp} />
                 <MetricCard label="Timeline Events" value={timeline?.timeline?.length || '—'} colorClass="text-orange-400" icon={Activity} />
                 <MetricCard label="RCA Confidence" value={`${rootCause?.analysis?.confidence || 0}%`} colorClass="text-red-400" icon={Shield} />
-                <MetricCard label="Total Pipeline Time" value={`${(parseFloat(timings.classify || 0) + parseFloat(timings.timeline || 0) + parseFloat(timings.rootcause || 0)).toFixed(1)}s`} colorClass="text-purple-400" icon={Clock} />
-                <MetricCard label="Total Tokens" value={totalTokensUsed.toLocaleString()} colorClass="text-purple-400" icon={Zap} />
+                <MetricCard label="Pipeline Time" value={`${(parseFloat(timings.classify || 0) + parseFloat(timings.timeline || 0) + parseFloat(timings.rootcause || 0)).toFixed(1)}s`} colorClass="text-purple-400" icon={Clock} />
+                <MetricCard label="Engine" value="Local" colorClass="text-emerald-400" icon={Zap} />
               </div>
 
               {/* Main Tabs Area */}
@@ -487,6 +526,9 @@ export default function App() {
                     <TabsList className="bg-gray-900/50 flex-wrap h-auto justify-start gap-1">
                       <TabsTrigger value="classify" className="data-[state=active]:bg-gray-800 data-[state=active]:text-white text-gray-400">
                         <Search className="w-4 h-4 mr-2" /> Classification
+                      </TabsTrigger>
+                      <TabsTrigger value="detection" className="data-[state=active]:bg-gray-800 data-[state=active]:text-white text-gray-400">
+                        <Radar className="w-4 h-4 mr-2" /> Incidents
                       </TabsTrigger>
                       <TabsTrigger value="timeline" className="data-[state=active]:bg-gray-800 data-[state=active]:text-white text-gray-400">
                         <Activity className="w-4 h-4 mr-2" /> Timeline
@@ -622,6 +664,81 @@ export default function App() {
                           </Card>
                         ))}
                       </div>
+                    </TabsContent>
+
+                    {/* ── Incidents Panel ───────────────────────────── */}
+                    <TabsContent value="detection" forceMount={isPrinting ? true : undefined} className={`space-y-6 mt-0 ${isPrinting ? 'print:block' : ''}`}>
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <Radar className="w-6 h-6 text-fuchsia-400" />
+                        <h2 className="text-xl font-bold text-white">Incident Detection</h2>
+                        <Badge variant="outline" className="border-gray-700 text-gray-400">{incidents?.processingTimeMs}ms</Badge>
+                        <Badge variant="secondary" className="text-emerald-400">Local engine — no LLM</Badge>
+                      </div>
+
+                      {incidents?.stats && (
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                          <MetricCard label="Total Logs" value={incidents.stats.totalLogs?.toLocaleString() || '—'} colorClass="text-gray-300" icon={FileText} />
+                          <MetricCard label="Windows Analyzed" value={incidents.stats.bucketsAnalyzed || '—'} colorClass="text-blue-400" icon={Clock} />
+                          <MetricCard label="Novel Patterns" value={incidents.stats.novelPatterns || 0} colorClass="text-amber-400" icon={TrendingUp} />
+                          <MetricCard label="Escalation Chains" value={incidents.stats.escalationChains || 0} colorClass="text-orange-400" icon={Activity} />
+                          <MetricCard label="Baseline Errors/Window" value={incidents.stats.baseline?.meanSeverePerBucket ?? '—'} colorClass="text-fuchsia-400" icon={BarChart3} />
+                        </div>
+                      )}
+
+                      {incidents?.incidents?.length === 0 && (
+                        <Card className="bg-gray-900/50 border-gray-800">
+                          <CardContent className="p-6 flex items-center gap-4">
+                            <CheckCircle className="w-8 h-8 text-emerald-400 flex-shrink-0" />
+                            <div>
+                              <h3 className="font-bold text-white">No incidents detected</h3>
+                              <p className="text-sm text-gray-400">Log activity stayed within baseline — no error bursts, novel error patterns, or escalation chains found.</p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {incidents?.incidents?.map((inc, i) => (
+                        <Card key={i} className={`border ${inc.severity === 'critical' ? 'border-red-800 bg-red-950/20' : inc.severity === 'high' ? 'border-orange-800 bg-orange-950/10' : 'border-gray-800 bg-gray-900/50'}`}>
+                          <CardContent className="p-5 space-y-4">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge variant={inc.severity === 'critical' ? 'destructive' : inc.severity === 'high' ? 'warning' : 'secondary'} className="uppercase">
+                                {inc.severity}
+                              </Badge>
+                              <h3 className="font-bold text-white">{inc.title}</h3>
+                              <div className="flex gap-1.5 ml-auto flex-wrap">
+                                {inc.signals?.map((sig, j) => (
+                                  <Badge key={j} variant="outline" className="border-fuchsia-800 text-fuchsia-300 text-[10px]">
+                                    {sig}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+
+                            <p className="text-sm text-gray-400 leading-relaxed">{inc.summary}</p>
+
+                            {inc.windowStart && (
+                              <p className="text-xs text-gray-500 font-mono">{inc.windowStart} → {inc.windowEnd}</p>
+                            )}
+
+                            {inc.zScore != null && (
+                              <p className="text-xs text-fuchsia-300 font-mono">z-score: {inc.zScore}σ</p>
+                            )}
+
+                            {inc.topPatterns?.length > 0 && (
+                              <div className="space-y-1 bg-black/40 p-3 rounded-md border border-gray-800">
+                                <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Top patterns</p>
+                                {inc.topPatterns.map((p, j) => (
+                                  <p key={j} className="text-xs text-gray-300 font-mono truncate hover:whitespace-normal flex gap-2">
+                                    <span className="text-fuchsia-400 flex-shrink-0">x{p.count}</span>
+                                    <span className="flex-shrink-0 text-gray-500">{p.category}</span>
+                                    <span className="truncate">{p.message}</span>
+                                  </p>
+                                ))}
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))}
                     </TabsContent>
 
                     {/* ── Timeline Panel ─────────────────────────────── */}
@@ -790,27 +907,31 @@ export default function App() {
 
                       <Card className="bg-gray-900/50 border-gray-800">
                         <CardHeader>
-                          <CardTitle className="text-lg">Context Selection Efficiency</CardTitle>
+                          <CardTitle className="text-lg">Local Analysis Engine</CardTitle>
                           <CardDescription>
-                            AIzen uses fingerprint deduplication, time-windowing, and stratified sampling to drastically reduce token usage while preserving reasoning capability.
+                            All analysis runs locally on a trained TF-IDF + logistic-regression classifier and deterministic rules — no LLM API, no tokens, no keys required.
                           </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                           <div className="flex justify-between items-center border-b border-gray-800 pb-2">
-                            <span className="text-sm text-gray-400">Raw log file</span>
-                            <span className="text-sm font-bold text-white">~180 KB (2,000 lines)</span>
+                            <span className="text-sm text-gray-400">Engine</span>
+                            <span className="text-sm font-bold text-emerald-400">Local (trained model + rules)</span>
                           </div>
                           <div className="flex justify-between items-center border-b border-gray-800 pb-2">
-                            <span className="text-sm text-gray-400">Classification Context</span>
-                            <span className="text-sm font-bold text-emerald-400">~2 KB (5 logs + neighbors)</span>
+                            <span className="text-sm text-gray-400">Classification</span>
+                            <span className="text-sm font-bold text-emerald-400">{classification?.processingTimeMs || '—'}ms</span>
                           </div>
                           <div className="flex justify-between items-center border-b border-gray-800 pb-2">
-                            <span className="text-sm text-gray-400">Timeline Context</span>
-                            <span className="text-sm font-bold text-emerald-400">~6 KB (33 deduplicated patterns)</span>
+                            <span className="text-sm text-gray-400">Incident Detection</span>
+                            <span className="text-sm font-bold text-emerald-400">{incidents?.processingTimeMs || '—'}ms</span>
+                          </div>
+                          <div className="flex justify-between items-center border-b border-gray-800 pb-2">
+                            <span className="text-sm text-gray-400">Timeline</span>
+                            <span className="text-sm font-bold text-emerald-400">{timeline?.processingTimeMs || '—'}ms</span>
                           </div>
                           <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-400">Root Cause Context</span>
-                            <span className="text-sm font-bold text-emerald-400">~11 KB (30 patterns + 60 samples)</span>
+                            <span className="text-sm text-gray-400">Root Cause Analysis</span>
+                            <span className="text-sm font-bold text-emerald-400">{rootCause?.processingTimeMs || '—'}ms</span>
                           </div>
                         </CardContent>
                       </Card>
@@ -819,10 +940,10 @@ export default function App() {
                       <Card className="bg-gray-900/50 border-gray-800 mt-6">
                         <CardHeader>
                           <CardTitle className="text-white flex items-center gap-2">
-                            <Zap className="w-5 h-5 text-purple-400" /> API Token Usage
+                            <Zap className="w-5 h-5 text-purple-400" /> Engine Usage
                           </CardTitle>
                           <CardDescription>
-                            Token consumption for Gemini API calls across pipeline stages.
+                            All pipeline stages run on the local engine — token/LLM usage is zero.
                           </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -872,13 +993,14 @@ export default function App() {
               </Card>
 
               <div className="flex justify-center pt-8 print:hidden">
-                <Button variant="outline" className="border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white" onClick={() => { setStepStatus({}); setCurrentStep('upload'); setClassification(null); setTimeline(null); setRootCause(null); }}>
+                <Button variant="outline" className="border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white" onClick={() => { setStepStatus({}); setCurrentStep('upload'); setClassification(null); setTimeline(null); setRootCause(null); setIncidents(null); }}>
                   <RotateCcw className="w-4 h-4 mr-2" />
                   Upload New Log File
                 </Button>
               </div>
             </div>
           )}
+          </>)}
         </main>
       </div>
     </div>

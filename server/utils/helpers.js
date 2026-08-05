@@ -7,6 +7,7 @@ const crypto = require('crypto');
 function generateFingerprint(level, message) {
   // Normalize: remove PIDs, slot numbers, child IDs, timestamps, paths — keep the pattern
   const normalized = message
+    .replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, 'IP')  // IPv4 addresses
     .replace(/\b\d{3,}\b/g, 'N')        // Replace long numbers (PIDs, child IDs) with N
     .replace(/slot\s+\d+/g, 'slot N')    // Normalize slot numbers
     .replace(/child\s+\d+/g, 'child N')  // Normalize child IDs
@@ -91,6 +92,23 @@ function formatDuration(ms) {
   return `${(ms / 60000).toFixed(1)}m`;
 }
 
+/**
+ * Format an ISO timestamp to the timeline schema format:
+ * "12:05 PM 10/07/2026" (12-hour + AM/PM + DD/MM/YYYY).
+ */
+function formatTimelineTimestamp(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  let hours = d.getHours();
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12 || 12;
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  return `${hours}:${minutes} ${ampm} ${day}/${month}/${d.getFullYear()}`;
+}
+
 module.exports = {
   generateFingerprint,
   parseApacheTimestamp,
@@ -99,4 +117,5 @@ module.exports = {
   groupBy,
   stratifiedSample,
   formatDuration,
+  formatTimelineTimestamp,
 };

@@ -6,6 +6,7 @@ const timelineService = require('../services/timelineService');
 const rootCauseService = require('../services/rootCauseService');
 const logStore = require('../store/logStore');
 const aiClient = require('../ai/aiClient');
+const config = require('../config/app.config');
 const logger = require('../utils/logger');
 
 const router = express.Router();
@@ -15,18 +16,21 @@ router.use(aiRateLimiter);
 
 /**
  * POST /api/ai/log-classification
- * Feature 1: Classify Apache log entries into meaningful categories.
+ * Feature 1: Classify log entries into meaningful categories.
+ * Runs locally (ML + rules) when classifier.mode = "local" — no API keys needed.
  */
 router.post(
   '/log-classification',
   validate('logClassification'),
   async (req, res, next) => {
     try {
-      if (!aiClient.isConfigured()) {
+      const options = req.validatedBody || {};
+
+      // Local engine requires no LLM keys; only the LLM mode does.
+      if (config.classifier.mode !== 'local' && !aiClient.isConfigured()) {
         return res.error('AI service is not configured. Please set NVIDIA_NIM_API_KEY in .env', 503);
       }
 
-      const options = req.validatedBody || {};
       const result = await classificationService.classify(options.logs, options);
 
       return res.success(result, 'Log classification completed successfully');
@@ -40,13 +44,14 @@ router.post(
 /**
  * POST /api/ai/incident-timeline
  * Feature 2: Generate an incident timeline from log entries.
+ * Local engine by default (no API keys needed).
  */
 router.post(
   '/incident-timeline',
   validate('incidentTimeline'),
   async (req, res, next) => {
     try {
-      if (!aiClient.isConfigured()) {
+      if (config.llmMode === 'llm' && !aiClient.isConfigured()) {
         return res.error('AI service is not configured. Please set NVIDIA_NIM_API_KEY in .env', 503);
       }
 
@@ -68,13 +73,14 @@ router.post(
 /**
  * POST /api/ai/root-cause-analysis
  * Feature 3: Perform root cause analysis on log entries.
+ * Local engine by default (no API keys needed).
  */
 router.post(
   '/root-cause-analysis',
   validate('rootCauseAnalysis'),
   async (req, res, next) => {
     try {
-      if (!aiClient.isConfigured()) {
+      if (config.llmMode === 'llm' && !aiClient.isConfigured()) {
         return res.error('AI service is not configured. Please set NVIDIA_NIM_API_KEY in .env', 503);
       }
 

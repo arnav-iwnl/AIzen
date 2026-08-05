@@ -5,7 +5,13 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "seed:labels": "node scripts/seedLabels.js",
+    "review:labels": "node scripts/reviewLabels.js",
+    "pull:loghub": "node scripts/pullLoghub.js",
+    "train": "python ../ml/train.py",
+    "smoke": "node scripts/smoke.js",
+    "smoke:realtime": "node scripts/realtime-smoke.js"
   },
   "keywords": ["siem", "ai", "log-analysis", "security"],
   "author": "",

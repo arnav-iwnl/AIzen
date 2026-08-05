@@ -1,5 +1,9 @@
 const ApacheLogParser = require('./apacheLogParser');
 const ApacheAccessLogParser = require('./apacheAccessLogParser');
+const NginxLogParser = require('./nginxParser');
+const SyslogParser = require('./syslogParser');
+const JsonLogParser = require('./jsonLogParser');
+const GenericLogParser = require('./genericParser');
 const logger = require('../utils/logger');
 
 /**
@@ -9,12 +13,14 @@ const logger = require('../utils/logger');
  */
 class ParserFactory {
   constructor() {
-    // Register all available parsers
+    // Register all available parsers (specific → generic, generic last)
     this.parsers = [
       new ApacheLogParser(),
       new ApacheAccessLogParser(),
-      // Future: new NginxLogParser(),
-      // Future: new SyslogParser(),
+      new NginxLogParser(),
+      new SyslogParser(),
+      new JsonLogParser(),
+      new GenericLogParser(),
     ];
   }
 

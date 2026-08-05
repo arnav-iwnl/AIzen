@@ -16,6 +16,9 @@ const { generalRateLimiter } = require('./middleware/rateLimiter');
 // Routes
 const logRoutes = require('./routes/logRoutes');
 const aiRoutes = require('./routes/aiRoutes');
+const detectRoutes = require('./routes/detectRoutes');
+const realtimeRoutes = require('./routes/realtimeRoutes');
+const demoRoutes = require('./routes/demoRoutes');
 
 // Services
 const preprocessor = require('./services/preprocessor');
@@ -65,6 +68,13 @@ app.use('/api', logRoutes);
 
 // AI feature routes
 app.use('/api/ai', aiRoutes);
+
+// Local incident detection routes
+app.use('/api/detect', detectRoutes);
+
+// Real-time SIEM (SSE) + demo traffic generator
+app.use('/api/realtime', realtimeRoutes);
+app.use('/api/demo', demoRoutes);
 
 // ─── ERROR HANDLING ─────────────────────────────────────────────────────────
 

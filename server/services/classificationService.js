@@ -74,12 +74,19 @@ class ClassificationService {
 
   /**
    * Core classification logic — processes patterns through the LLM in batches.
+   * When classifier.mode = "local", routes through the detector service instead
+   * (no network, sub-second on large pattern sets).
    *
    * @param {Object[]} patterns - Deduplicated patterns with occurrenceCount
    * @param {number} startTime - Start time for performance tracking
    * @returns {Object} Full classification results
    */
   async _classifyPatterns(patterns, startTime, options = {}) {
+    if (config.classifier.mode === 'local') {
+      const detector = require('./detectorService');
+      return detector.classify(patterns, startTime);
+    }
+
     const batchSize = config.logProcessing.classificationBatchSize;
     const batches = [];
     for (let i = 0; i < patterns.length; i += batchSize) {
