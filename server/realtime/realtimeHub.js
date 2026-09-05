@@ -171,15 +171,28 @@ class RealtimeHub {
 
   // ── SSE client management ─────────────────────────────────────────────────
   subscribe(req, res) {
-    // Let Express CORS middleware handle CORS headers
+    // Dynamically set SSE CORS headers to match allowed origins
+    const allowedOrigins = [config.frontendUrl, config.vulnerableSiteUrl].filter(Boolean);
+    if (config.nodeEnv !== 'production') {
+      allowedOrigins.push('http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:3000', 'http://127.0.0.1:3000');
+    }
+
+    const origin = req.get('origin');
+    if (origin && !allowedOrigins.includes(origin)) {
+      // Reject connections from disallowed origins
+      res.writeHead(403, { 'Content-Type': 'text/plain' });
+      res.end('CORS origin not allowed');
+      return;
+    }
+
     res.writeHead(200, {
-  'Content-Type': 'text/event-stream',
-  'Cache-Control': 'no-cache',
-  Connection: 'keep-alive',
-  'X-Accel-Buffering': 'no',
-  'Access-Control-Allow-Origin': 'http://localhost:5173',
-  'Vary': 'Origin',
-});
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+      'Access-Control-Allow-Origin': origin || allowedOrigins[0] || '*',
+      'Vary': 'Origin',
+    });
     res.write(': connected\n\n');
     res.write(`data: ${JSON.stringify({ type: 'snapshot', ...this.getSnapshot() })}\n\n`);
 
