@@ -17,6 +17,13 @@
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
+// Use follow-redirects for reliable redirect handling (Hugging Face uses redirects)
+let fhHttps;
+try {
+  fhHttps = require('follow-redirects').https;
+} catch (e) {
+  fhHttps = null;
+}
 const { extract } = require('tar');
 const { createGunzip } = require('zlib');
 const { pipeline } = require('stream/promises');
@@ -44,7 +51,8 @@ const REQUIRED_FILES = [
   { path: path.join(DATA_DIR, 'synthetic_error.log'), url: null },
 ];
 
-const BUCKET_BASE = process.env.DATASET_BUCKET_URL;
+// Normalize bucket base: trim trailing slashes to avoid double-slash issues
+const BUCKET_BASE = process.env.DATASET_BUCKET_URL ? process.env.DATASET_BUCKET_URL.replace(/\/+$|\/$/g, '') : null;
 
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) {
@@ -57,7 +65,8 @@ async function downloadFile(url, destPath) {
   ensureDir(dir);
 
   return new Promise((resolve, reject) => {
-    const req = https.get(url, (res) => {
+    const getter = fhHttps || https;
+    const req = getter.get(url, { headers: { 'User-Agent': 'AIzen-Dataset-Downloader/1.0', Accept: '*/*' } }, (res) => {
       if (res.statusCode !== 200) {
         reject(new Error(`HTTP ${res.statusCode} for ${url}`));
         return;
