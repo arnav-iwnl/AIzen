@@ -4,25 +4,25 @@
 
 @layer base {
   :root {
-    --background: 224 71% 4%;
-    --foreground: 213 31% 91%;
-    --muted: 223 47% 11%;
-    --muted-foreground: 215.4 16.3% 56.9%;
-    --popover: 224 71% 4%;
-    --popover-foreground: 215 20.2% 65.1%;
-    --card: 224 71% 4%;
-    --card-foreground: 213 31% 91%;
-    --border: 216 34% 17%;
-    --input: 216 34% 17%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 222.2 47.4% 11.2%;
-    --secondary-foreground: 210 40% 98%;
-    --accent: 216 34% 17%;
-    --accent-foreground: 210 40% 98%;
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --card: 0 0% 6%;
+    --card-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --primary: 25 95% 53%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
     --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
-    --ring: 216 34% 17%;
+    --destructive-foreground: 0 0% 98%;
+    --ring: 25 95% 53%;
     --radius: 0.5rem;
   }
 }
@@ -61,13 +61,13 @@
     background-color: white !important;
     color: black !important;
   }
-  .bg-\[\#0a0a0a\], .bg-gray-900, .bg-gray-800, .bg-gray-950, .bg-black, .bg-gray-900\/50, .bg-\[\#0f0f11\], .bg-gray-900\/30, .bg-gray-900\/20, .bg-gray-900\/60, .bg-gray-800\/50, .bg-white\/5, .bg-white\/10 {
+  .bg-\[\#0a0a0a\], .bg-gray-900, .bg-gray-800, .bg-gray-950, .bg-black, .bg-gray-900\/50, .bg-\[\#0f0f11\], .bg-gray-900\/30, .bg-gray-900\/20, .bg-gray-900\/60, .bg-gray-800\/50, .bg-white\/5, .bg-white\/10, [class*="bg-neutral-"], [class*="bg-white\/"] {
     background-color: transparent !important;
   }
-  .border-gray-800, .border-gray-700, .border-white\/10, .border-white\/5 {
+  .border-gray-800, .border-gray-700, .border-white\/10, .border-white\/5, [class*="border-neutral-"] {
     border-color: #e5e7eb !important;
   }
-  [class*="text-white"], [class*="text-gray-"], [class*="text-purple-"], [class*="text-green-"], [class*="text-emerald-"], [class*="text-red-"], [class*="text-blue-"], [class*="text-amber-"], [class*="text-yellow-"], [class*="text-muted"], [class*="text-foreground"], [class*="text-card"] {
+  [class*="text-white"], [class*="text-gray-"], [class*="text-purple-"], [class*="text-green-"], [class*="text-emerald-"], [class*="text-red-"], [class*="text-blue-"], [class*="text-amber-"], [class*="text-yellow-"], [class*="text-muted"], [class*="text-foreground"], [class*="text-card"], [class*="text-neutral-"] {
     color: #111827 !important;
   }
   .print\:hidden {

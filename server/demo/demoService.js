@@ -153,6 +153,18 @@ class DemoService {
 
   _makeLine(action) {
     this._ensurePool();
+    if (action === 'mixed') {
+      // Realistic mix: interleave real attack payloads (from the data files)
+      // with normal traffic so the deep model has something to catch live.
+      const attackKeys = ['sqli', 'xss', 'path-traversal', 'scanner'];
+      const avail = attackKeys.filter((k) => this.pools[k] && this.pools[k].length);
+      if (avail.length && Math.random() < 0.55) {
+        const key = pick(avail);
+        const entry = pick(this.pools[key]);
+        return this._randomize(entry.raw, entry.format);
+      }
+      return this._fallback(avail.length ? 'get-flood' : pick(attackKeys));
+    }
     const pool = this.pools[action];
     if (pool && pool.length > 0) {
       const entry = pick(pool);
@@ -168,7 +180,7 @@ class DemoService {
   }
 
   // ── Public API ────────────────────────────────────────────────────────────
-  trigger(action, count = 1) {
+  async trigger(action, count = 1) {
     const safe = Math.min(Math.max(parseInt(count, 10) || 1, 1), config.demo.maxBurst);
     const target = this.ACTIONS.find((a) => a.id === action) ? action : 'mixed';
 
@@ -176,7 +188,7 @@ class DemoService {
     for (let i = 0; i < safe; i++) {
       try {
         const line = this._makeLine(target);
-        if (realtimeHub.ingestLine(line, target)) generated++;
+        if (await realtimeHub.ingestLine(line, target)) generated++;
       } catch (err) {
         logger.warn(`[demo] line failed for ${target}: ${err.message}`);
       }
@@ -195,7 +207,7 @@ class DemoService {
       const act = this.streamState.action === 'mixed' ? pick(this.ACTIONS.map((a) => a.id)).id : this.streamState.action;
       try {
         const line = this._makeLine(act);
-        realtimeHub.ingestLine(line, act);
+        realtimeHub.ingestLine(line, act).catch((err) => logger.warn(`[demo] stream line failed: ${err.message}`));
       } catch (err) {
         logger.warn(`[demo] stream line failed: ${err.message}`);
       }

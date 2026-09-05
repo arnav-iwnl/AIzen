@@ -12,7 +12,7 @@ const router = express.Router();
 router.post('/incidents', async (req, res, next) => {
   try {
     const options = req.body && typeof req.body === 'object' ? req.body : {};
-    const result = incidentService.detect(options);
+    const result = await incidentService.detect(options);
     return res.success(result, `Detected ${result.incidents.length} incidents`);
   } catch (error) {
     logger.error('Incident detection failed', { error: error.message });

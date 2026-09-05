@@ -25,10 +25,10 @@ router.get('/stream-state', (req, res) => {
  * Fire `count` lines of a given action into the realtime feed.
  * Body: { action: string, count: number }
  */
-router.post('/trigger', (req, res, next) => {
+router.post('/trigger', async (req, res, next) => {
   try {
     const { action = 'mixed', count = 1 } = req.body || {};
-    const result = demoService.trigger(action, count);
+    const result = await demoService.trigger(action, count);
     return res.success(result, `Fired ${result.generated} ${result.action} log lines`);
   } catch (error) {
     logger.error('Demo trigger failed', { error: error.message });
@@ -41,10 +41,10 @@ router.post('/trigger', (req, res, next) => {
  * Start/stop the auto-stream.
  * Body: { running: boolean, action?: string, rate?: number }
  */
-router.post('/stream', (req, res, next) => {
+router.post('/stream', async (req, res, next) => {
   try {
     const { running = false, action, rate } = req.body || {};
-    const state = running ? demoService.startStream({ action, rate }) : demoService.stopStream();
+    const state = running ? await demoService.startStream({ action, rate }) : demoService.stopStream();
     return res.success(state, running ? 'Auto-stream started' : 'Auto-stream stopped');
   } catch (error) {
     logger.error('Demo stream control failed', { error: error.message });

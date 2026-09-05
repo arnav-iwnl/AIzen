@@ -100,6 +100,28 @@ router.post('/load-default', async (req, res, next) => {
 });
 
 /**
+ * POST /api/load-generated
+ * Load the generated v2 logs file (data/generated_v2_logs.log) into memory.
+ */
+router.post('/load-generated', async (req, res, next) => {
+  try {
+    const genPath = path.resolve(__dirname, '../../data/generated_v2_logs.log');
+
+    if (!fs.existsSync(genPath)) {
+      return res.error('Generated log file not found. Run server/scripts/generate_v2_logs.js to create it.', 404);
+    }
+
+    const content = fs.readFileSync(genPath, 'utf-8');
+    const result = preprocessor.process(content, 'generated_v2_logs.log');
+
+    logger.info('Generated v2 logs loaded', { totalLines: result.totalLines });
+    return res.success(result, 'Generated v2 logs loaded successfully');
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /api/logs
  * Retrieve parsed logs (paginated).
  */

@@ -4,6 +4,7 @@ const rules = require('../rules/logRules');
 const config = require('../config/app.config');
 const { getTimeBucketKey } = require('../utils/helpers');
 const logger = require('../utils/logger');
+const v2Bridge = require('../ml/v2Bridge');
 
 const SEVERE_LEVELS = new Set(['error', 'crit', 'critical', 'emerg', 'alert']);
 
@@ -13,7 +14,7 @@ const SEVERE_LEVELS = new Set(['error', 'crit', 'critical', 'emerg', 'alert']);
  * already-indexed LogStore. Sub-second on 100k+ lines.
  */
 class IncidentService {
-  detect(options = {}) {
+  async detect(options = {}) {
     const startTime = Date.now();
     if (!logStore.isLoaded) {
       throw new Error('No logs loaded. Please upload a log file first.');
@@ -62,6 +63,38 @@ class IncidentService {
     const chains = contextSelector._buildEscalationChains(logStore.logs);
     if (chains.length > 0) {
       incidents.push(this._buildEscalationIncident(chains));
+    }
+
+    // ── 5. v2 deep scan (opt-in) ────────────────────────────────────────────
+    // Individual lines the rules missed but the deep model flags as an attack
+    // become their own incident (fresh fingerprints only, bounded scan).
+    if (v2Bridge.isEnabled()) {
+      const seen = new Set(incidents.flatMap((inc) => inc.topPatterns || []).map((p) => p.message));
+      let checked = 0;
+      for (const fp of logStore.byFingerprint.keys()) {
+        if (checked >= 40) break; // ponytail: cap the scan, not the store
+        const entries = logStore.byFingerprint.get(fp);
+        const first = entries[0];
+        if (!first || !first.message || seen.has(first.message)) continue;
+        checked++;
+        const v2 = await v2Bridge.classifyLine(first.raw || first.message);
+        if (v2 && v2.is_attack) {
+          incidents.push({
+            id: `v2-${fp.slice(0, 12)}`,
+            windowStart: first.timestamp || null,
+            windowEnd: first.timestamp || null,
+            severity: 'high',
+            title: `v2: ${v2.attack_type} attack detected`,
+            summary: `Deep classifier flagged "${first.message.slice(0, 160)}" as ${v2.attack_type} (${(v2.attack_confidence * 100).toFixed(1)}% confidence).`,
+            logCount: entries.length,
+            errorCount: SEVERE_LEVELS.has(first.level) ? entries.length : 0,
+            zScore: null,
+            topPatterns: [{ message: first.message, level: first.level, count: entries.length, category: 'Security' }],
+            signals: ['v2-attack'],
+            type: 'v2',
+          });
+        }
+      }
     }
 
     incidents.sort((a, b) => severityRank(b.severity) - severityRank(a.severity));

@@ -48,7 +48,7 @@ async function run() {
     );
     assert(allFields, 'classification schema valid');
 
-    const det = incidentService.detect();
+    const det = await incidentService.detect();
     assert(Array.isArray(det.incidents), `incident detection ran (${det.processingTimeMs}ms)`);
     if (det.incidents.length > 0) {
       assert(det.incidents.every((i) => i.title && i.severity && i.signals.length > 0), 'incident schema valid');

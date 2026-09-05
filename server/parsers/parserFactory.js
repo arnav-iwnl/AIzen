@@ -3,6 +3,7 @@ const ApacheAccessLogParser = require('./apacheAccessLogParser');
 const NginxLogParser = require('./nginxParser');
 const SyslogParser = require('./syslogParser');
 const JsonLogParser = require('./jsonLogParser');
+const KeyValueGroupParser = require('./keyValueGroupParser');
 const GenericLogParser = require('./genericParser');
 const logger = require('../utils/logger');
 
@@ -20,6 +21,7 @@ class ParserFactory {
       new NginxLogParser(),
       new SyslogParser(),
       new JsonLogParser(),
+      new KeyValueGroupParser(),
       new GenericLogParser(),
     ];
   }

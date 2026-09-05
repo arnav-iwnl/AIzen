@@ -28,7 +28,7 @@ router.post(
 
       // Local engine requires no LLM keys; only the LLM mode does.
       if (config.classifier.mode !== 'local' && !aiClient.isConfigured()) {
-        return res.error('AI service is not configured. Please set NVIDIA_NIM_API_KEY in .env', 503);
+        return res.error('AI service is not configured. Please set OPENAI_API_KEY in .env', 503);
       }
 
       const result = await classificationService.classify(options.logs, options);
@@ -52,7 +52,7 @@ router.post(
   async (req, res, next) => {
     try {
       if (config.llmMode === 'llm' && !aiClient.isConfigured()) {
-        return res.error('AI service is not configured. Please set NVIDIA_NIM_API_KEY in .env', 503);
+        return res.error('AI service is not configured. Please set OPENAI_API_KEY in .env', 503);
       }
 
       if (!logStore.isLoaded) {
@@ -81,7 +81,7 @@ router.post(
   async (req, res, next) => {
     try {
       if (config.llmMode === 'llm' && !aiClient.isConfigured()) {
-        return res.error('AI service is not configured. Please set NVIDIA_NIM_API_KEY in .env', 503);
+        return res.error('AI service is not configured. Please set OPENAI_API_KEY in .env', 503);
       }
 
       if (!logStore.isLoaded) {

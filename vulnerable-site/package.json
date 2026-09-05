@@ -1,0 +1,19 @@
+{
+  "name": "aizen-vulnerable-site",
+  "version": "1.0.0",
+  "description": "Vulnerable web application for AIzen SIEM demo - contains intentionally vulnerable endpoints for security testing",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "axios": "^1.20.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}

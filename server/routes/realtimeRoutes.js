@@ -29,4 +29,16 @@ router.post('/clear', (req, res) => {
   return res.success({ cleared: true }, 'Realtime feed cleared');
 });
 
+/**
+ * POST /api/realtime/ingest
+ * Receive a raw log line from an external source (e.g., vulnerable site)
+ * and feed it through the full SIEM pipeline (rules + v2).
+ */
+router.post('/ingest', async (req, res) => {
+  const { raw, source } = req.body || {};
+  if (!raw) return res.error('raw is required', 400);
+  const ev = await realtimeHub.ingestLine(raw, source || 'external');
+  return res.success(ev, 'Ingested');
+});
+
 module.exports = router;

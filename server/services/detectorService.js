@@ -3,6 +3,7 @@ const mlModel = require('../ml/model');
 const classificationService = require('./classificationService');
 const config = require('../config/app.config');
 const logger = require('../utils/logger');
+const v2Bridge = require('../ml/v2Bridge');
 
 /**
  * Detector Service — local, synchronous classification of log patterns.
@@ -15,7 +16,7 @@ class DetectorService {
    * @param {Object[]} patterns - deduped patterns (id, raw, level, message, occurrenceCount, firstSeen, lastSeen)
    * @returns {Object} Same response schema as the LLM classification endpoint
    */
-  classify(patterns, startTime = Date.now()) {
+  async classify(patterns, startTime = Date.now()) {
     const threshold = config.classifier.confidenceThreshold || 70;
     const hasModel = mlModel.isLoaded();
     const allResults = [];
@@ -64,6 +65,27 @@ class DetectorService {
           insight,
         },
         securityTypes: securityTags,
+      });
+    }
+
+    // ── v2 deep pass (PRIMARY, opt-in) ──────────────────────────────────────
+    // v2 runs on EVERY pattern. When it reports an attack its verdict wins:
+    // Security/high + model confidence + attack type (merged with any rule
+    // types already caught, so nothing regresses). Fixes the mixed-request
+    // blind spot and makes the deep model the attack authority.
+    if (v2Bridge.isEnabled()) {
+      const texts = patterns.map((p) => p.raw || p.message);
+      const results = await Promise.all(texts.map((t) => v2Bridge.classifyLine(t)));
+      results.forEach((v2, j) => {
+        if (!v2 || !v2.is_attack) return;
+        const r = allResults[j];
+        const priorTypes = r.securityTypes;
+        r.classification.category = 'Security';
+        r.classification.severity = 'high';
+        r.classification.confidence = Math.round(v2.attack_confidence * 100);
+        r.classification.explanation = `v2:${v2.attack_type}`;
+        r.classification.insight = `Deep classifier detected ${v2.attack_type} attack (${(v2.attack_confidence * 100).toFixed(1)}% confidence).${priorTypes.length ? ` Also matched: ${priorTypes.join(', ')}.` : ''}`;
+        r.securityTypes = Array.from(new Set([...priorTypes, v2.attack_type]));
       });
     }
 

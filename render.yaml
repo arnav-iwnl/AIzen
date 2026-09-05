@@ -1,20 +1,82 @@
 services:
+  # ─────────────────────────────────────────────────────────────
+  # Backend API Service
+  # ─────────────────────────────────────────────────────────────
   - type: web
     name: aizen-backend
     env: node
     rootDir: server
     buildCommand: npm install
     startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 10000
       - key: NODE_OPTIONS
-        value: --max-old-space-size=400
-      - key: GEMINI_API_KEY
+        value: --max-old-space-size=512
+      - key: V2_CLASSIFIER
+        value: onnx
+      - key: V2_THRESHOLD
+        value: "0.95"
+      - key: HF_MODEL_REPO
+        value: dr0wzy/aizen-siem
+      - key: HF_MODEL_REVISION
+        value: main
+      - key: HF_TOKEN
         sync: false
-      - key: NVIDIA_API_KEY
+      - key: V2_THRESHOLD
+        value: "0.95"
+      - key: V2_CLASSIFIER
+        value: onnx
+      - key: FRONTEND_URL
+        value: https://aizen-frontend.onrender.com
+      - key: VULNERABLE_SITE_URL
         sync: false
-      - key: OPENAI_BASE_URL
-        value: https://integrate.api.nvidia.com/v1
+      - key: HF_TOKEN
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHANNEL_ID
+        sync: false
+      - key: DATASET_BUCKET_URL
+        sync: false
+
+  # ─────────────────────────────────────────────────────────────
+  # Frontend Static Site
+  # ─────────────────────────────────────────────────────────────
+  - type: web
+    name: aizen-frontend
+    env: static
+    rootDir: client
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    headers:
+      - path: /*
+        name: Access-Control-Allow-Origin
+        value: "*"
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+  # ─────────────────────────────────────────────────────────────
+  # Vulnerable Site (Separate Service)
+  # ─────────────────────────────────────────────────────────────
+  - type: web
+    name: aizen-vulnerable-site
+    env: node
+    rootDir: vulnerable-site
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: PORT
+        value: 5000
+      - key: AIZEN_BACKEND_URL
+        sync: false
+      - key: AIZEN_FRONTEND_URL
+        sync: false
+      - key: NODE_ENV
+        value: production

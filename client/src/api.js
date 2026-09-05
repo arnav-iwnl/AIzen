@@ -166,3 +166,40 @@ export async function controlDemoStream(body) {
   if (!res.ok) throw new Error('Stream control failed');
   return res.json();
 }
+
+// ── Dataset demo (standalone /demo page) ────────────────────────────────
+
+/**
+ * List available dataset-demo sources (data/ logs + v2 training datasets).
+ */
+export async function getDatasetDemoSources() {
+  const res = await fetch(`${API_BASE}/demo-dataset/sources`);
+  if (!res.ok) throw new Error('Failed to load dataset sources');
+  return res.json();
+}
+
+/**
+ * Fire `count` sniffed lines from the chosen source into the realtime hub.
+ */
+export async function triggerDatasetDemo(count = 50, source) {
+  const res = await fetch(`${API_BASE}/demo-dataset/trigger`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ count, source }),
+  });
+  if (!res.ok) throw new Error('Dataset demo trigger failed');
+  return res.json();
+}
+
+/**
+ * Start/stop the dataset auto-stream. Body: { running, source?, rate? }
+ */
+export async function controlDatasetDemoStream(body) {
+  const res = await fetch(`${API_BASE}/demo-dataset/stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error('Dataset stream control failed');
+  return res.json();
+}

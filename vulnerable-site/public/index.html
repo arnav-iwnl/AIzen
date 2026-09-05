@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AIZEN Vulnerable Site - Security Testing Platform</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      margin: 0; 
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
+      color: #e8e8e8;
+      min-height: 100vh;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    .container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
+    .header { text-align: center; margin-bottom: 50px; padding: 40px 0; }
+    .logo { font-size: 3rem; font-weight: 800; background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 10px; }
+    .tagline { color: #888; font-size: 1.2rem; margin-top: 10px; }
+    .warning-banner { 
+      background: linear-gradient(135deg, #ff6b35 0%, #e55a2b 100%); 
+      color: white; 
+      padding: 20px; 
+      border-radius: 12px; 
+      margin-bottom: 40px;
+      border: 1px solid rgba(255, 107, 53, 0.3);
+      box-shadow: 0 4px 20px rgba(255, 107, 53, 0.2);
+    }
+    .warning-banner h2 { margin: 0 0 10px; font-size: 1.5rem; }
+    .warning-banner p { margin: 0; opacity: 0.9; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; margin-top: 30px; }
+    .card { 
+      background: rgba(255, 255, 255, 0.03); 
+      border: 1px solid rgba(255, 107, 53, 0.2); 
+      border-radius: 16px; 
+      padding: 30px; 
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .card:hover { 
+      border-color: #ff6b35; 
+      box-shadow: 0 12px 40px rgba(255, 107, 53, 0.15);
+      transform: translateY(-4px);
+    }
+    .card-header { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+    .icon { width: 56px; height: 56px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+    .card-title { font-size: 1.25rem; font-weight: 700; color: #fff; }
+    .card-desc { color: rgba(255,255,255,0.7); margin: 12px 0 24px; line-height: 1.6; }
+    .attack-types { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+    .attack-tag { 
+      background: rgba(255, 107, 53, 0.15); 
+      color: #ff6b35; 
+      padding: 6px 12px; 
+      border-radius: 20px; 
+      font-size: 0.75rem; 
+      font-weight: 600;
+      border: 1px solid rgba(255, 107, 53, 0.3);
+    }
+    .btn { 
+      display: inline-flex; 
+      align-items: center; 
+      gap: 8px; 
+      padding: 12px 24px; 
+      background: linear-gradient(135deg, #ff6b35 0%, #e55a2b 100%); 
+      color: white; 
+      border: none; 
+      border-radius: 8px; 
+      font-weight: 600; 
+      font-size: 1rem; 
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-decoration: none;
+      display: inline-flex;
+    }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(255, 107, 53, 0.4); }
+    .btn:active { transform: translateY(0); }
+    .endpoint-list { list-style: none; padding: 0; margin: 0; }
+    .endpoint { 
+      display: flex; 
+      align-items: center; 
+      justify-content: space-between; 
+      padding: 12px 16px; 
+      background: rgba(255,255,255,0.03); 
+      border: 1px solid rgba(255,107,53,0.1); 
+      border-radius: 8px; 
+      margin: 8px 0;
+      transition: all 0.2s;
+    }
+    .endpoint:hover { background: rgba(255, 107, 53, 0.05); }
+    .endpoint-method { 
+      background: linear-gradient(135deg, #ff6b35 0%, #e55a2b 100%); 
+      color: white; 
+      padding: 4px 12px; 
+      border-radius: 6px; 
+      font-size: 0.75rem; 
+      font-weight: 700; 
+      font-family: monospace;
+      min-width: 80px;
+      text-align: center;
+    }
+    .endpoint-path { font-family: monospace; color: #fff; font-size: 0.9rem; flex: 1; margin-left: 16px; }
+    .endpoint-desc { color: rgba(255,255,255,0.5); font-size: 0.85rem; }
+    .footer { margin-top: 60px; text-align: center; color: rgba(255,255,255,0.3); font-size: 0.85rem; }
+    .footer a { color: #ff6b35; text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
+    .warning-box {
+      background: linear-gradient(135deg, rgba(255, 107, 53, 0.15) 0%, rgba(229, 90, 43, 0.1) 100%);
+      border: 1px solid rgba(255, 107, 53, 0.3);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 30px;
+    }
+    .warning-box h3 { margin: 0 0 12px; color: #ff6b35; }
+    .warning-box p { margin: 8px 0; color: rgba(255,255,255,0.8); }
+    .attack-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .attack-tag { 
+      background: rgba(255, 107, 53, 0.15); 
+      color: #ff6b35; 
+      padding: 4px 12px; 
+      border-radius: 20px; 
+      font-size: 0.7rem; 
+      font-weight: 600;
+      border: 1px solid rgba(255, 107, 53, 0.3);
+      font-size: 0.65rem;
+    }
+    @media (max-width: 768px) {
+      .container { padding: 20px 15px; }
+      .hero h1 { font-size: 2rem; }
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="logo">AIZEN</div>
+      <p class="tagline">Vulnerable Application for SIEM Testing</p>
+    </header>
+
+    <div class="warning-box">
+      <h3>⚠️ INTENTIONALLY VULNERABLE APPLICATION</h3>
+      <p>This application contains <strong>intentional security vulnerabilities</strong> for security training and SIEM testing purposes.</      <p>All endpoints are intentionally vulnerable to common web attacks. All requests are logged and forwarded to the AIzen SIEM backend for real-time breach detection.</p>
+      <div class="attack-tags">
+        <span class="attack-tag">SQL Injection</span>
+        <span class="attack-tag">XSS</span>
+        <span class="attack-tag">Path Traversal</span>
+        <span class="attack-tag">Brute Force</span>
+        <span class="attack-tag">LFI</span>
+        <span class="attack-tag">Broken Auth</span>
+        <span class="attack-tag">Info Disclosure</span>
+      </div>
+    </div>
+
+    <div class="grid">
+      <article class="card">
+        <div class="card-header">
+          <div class="icon" style="background: linear-gradient(135deg, #ff6b35 0%, #e55a2b 100%);">🔍</div>
+          <div>
+            <h3 class="card-title">SQL Injection</h3>
+            <p class="card-desc">Product lookup with direct SQL concatenation. No parameterization.</div>
+          </div>
+          <div class="attack-types">
+            <span class="attack-tag">UNION SELECT</span>
+            <span class="attack-tag">OR 1=1</span>
+            <span class="attack-tag">UNION SELECT</span>
+            <span class="attack-tag">SLEEP()</span>
+            <span class="attack-tag">DROP TABLE</span>
+          </div>
+          <a href="/product?id=1" class="btn">Try Product Endpoint</a>
+        </article>
+
+        <article class="card">
+          <div class="card-header">
+            <div class="icon" style="background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%);">💻</div>
+            <div>
+              <h3 class="card-title">Cross-Site Scripting (XSS)</h3>
+              <p class="card-desc">Reflected XSS via search and profile endpoints. Input reflected unsanitized.</div>
+            </div>
+            <div class="attack-types">
+              <span class="attack-tag">&lt;script&gt;alert()&lt;/script&gt;</span>
+              <span class="attack-tag">&lt;img onerror&gt;</span>
+              <span class="attack-tag">onload=</span>
+              <span class="attack-tag">javascript:</span>
+              <span class="attack-tag">event handlers</span>
+            </div>
+            <a href="/search?q=test" class="btn">Try Search (XSS)</a>
+            <a href="/profile?name=test" class="btn" style="margin-left: 8px;">Try Profile (XSS)</a>
+          </article>
+
+        <article class="card">
+          <div class="card-header">
+            <div class="icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">📁</div>
+            <div>
+              <h3 class="card-title">Path Traversal / LFI</h3>
+              <p class="card-desc">File download with no path validation. Directory traversal to sensitive files.</div>
+            </div>
+            <div class="attack-types">
+              <span class="attack-tag">../../../etc/passwd</span>
+              <span class="attack-tag">..%2f..%2fetc%2fpasswd</span>
+              <span class="attack-tag">/etc/shadow</span>
+              <span class="attack-tag">/etc/hosts</span>
+              <span class="attack-tag">config.php</span>
+            </div>
+            <a href="/download?file=../../../etc/passwd" class="btn">Try Path Traversal</a>
+          </article>
+
+        <article class="card">
+          <div class="card-header">
+            <div class="icon" style="background: linear-gradient(135deg, #fc466b 0%, #3f5efb 100%);">🔐</div>
+            <div>
+              <h3 class="card-title">Brute Force Login</h3>
+              <p class="card-desc">No rate limiting, no lockout, weak passwords. No captcha.</div>
+            </div>
+            <div class="attack-types">
+              <span class="attack-tag">Credential Stuffing</span>
+              <span class="attack-tag">Password Spraying</span>
+              <span class="attack-tag">User Enum</span>
+              <span class="attack-tag">No Lockout</span>
+              <span class="attack-tag">No Captcha</span>
+            </div>
+            <a href="/login" class="btn">Try Brute Force</a>
+          </article>
+
+          <article class="card">
+            <div class="card-header">
+              <div class="icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">🔓</div>
+              <div>
+                <h3 class="card-title">Broken Auth / Info Disclosure</h3>
+                <p class="card-desc">Unauthenticated admin panel. Exposed config, secrets, users.</div>
+              </div>
+              <div class="attack-types">
+                <span class="attack-tag">No Auth</span>
+                <span class="attack-tag">Config Leak</span>
+                <span class="attack-tag">User Enum</span>
+                <span class="attack-tag">Secrets Leak</span>
+              </div>
+              <a href="/api/admin" class="btn">View Admin Panel</a>
+            </article>
+
+            <article class="card">
+              <div class="card-header">
+                <div class="icon" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">📡</div>
+                <div>
+                  <h3 class="card-title">Scanner / Recon</h3>
+                  <p class="card-desc">Automated scanner signatures. Acunetix, Nikto, SQLMap fingerprints.</div>
+                </div>
+                <div class="attack-types">
+                  <span class="attack-tag">Acunetix</span>
+                  <span class="attack-tag">Nikto</span>
+                  <span class="attack-tag">SQLMap</span>
+                  <span class="attack-tag">Dirbuster</span>
+                  <span class="attack-tag">WPScan</span>
+                </div>
+                <a href="/scanner" class="btn">Simulate Scan</a>
+            </article>
+          </div>
+
+          <div style="text-align: center; margin-top: 40px; padding: 30px; background: rgba(255, 107, 53, 0.05); border-radius: 16px; border: 1px solid rgba(255, 107, 53, 0.2);">
+            <h3 style="color: #ff6b35; margin: 0 0 12px;">🛡️ AIzen SIEM Integration</h3>
+            <p style="margin: 0 0 16px; color: rgba(255,255,255,0.7);">
+              Every request to this application is logged in Apache Combined Log Format and 
+              <strong>immediately forwarded to the AIzen SIEM backend</strong> for real-time 
+              breach detection using rules + deep learning (v2 LSTM model).
+            </p>
+            <p style="margin: 8px 0 0; color: rgba(255,255,255,0.7); font-size: 0.9rem;">
+              Attacks are detected in real-time → classified by type → alerts sent via SSE + Telegram
+            </p>
+          </div>
+
+          <footer class="footer">
+            <p>AIZEN Vulnerable Site v1.0 | Built for SIEM Testing & Security Training</p>
+            <p><a href="https://github.com" target="_blank">View Source</a> | <a href="/health" target="_blank">Health Check</a></p>
+          </div>
+        </main>
+      </div>
+    </body>
+    </html>

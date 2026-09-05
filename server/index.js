@@ -6,6 +6,7 @@ const fs = require('fs');
 // Load environment config first
 const config = require('./config/app.config');
 const logger = require('./utils/logger');
+const datasetDownloader = require('./services/datasetDownloader');
 
 // Middleware
 const requestTimer = require('./middleware/requestTimer');
@@ -24,6 +25,7 @@ const demoRoutes = require('./routes/demoRoutes');
 const preprocessor = require('./services/preprocessor');
 const logStore = require('./store/logStore');
 const aiClient = require('./ai/aiClient');
+const v2Bridge = require('./ml/v2Bridge');
 
 // Initialize Express app
 const app = express();
@@ -33,25 +35,41 @@ const app = express();
 // 1. Request timer — must be first to capture full processing time
 app.use(requestTimer);
 
-// 2. CORS — strictly allow the Vercel frontend origin
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
+// 2. CORS — allow configured frontend and vulnerable-site origins.
+let allowedOrigins = [config.frontendUrl, config.vulnerableSiteUrl].filter(Boolean);
 
+// In non-production allow local dev origins for convenience
+if (config.nodeEnv !== 'production') {
+  allowedOrigins = allowedOrigins.concat([
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+  ]).filter(Boolean);
+}
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow same-origin requests from tools (no origin) and allowed origins
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+
+    callback(new Error(`CORS not allowed for origin: ${origin}`));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+}));
+app.options('*', cors());
+console.log('FRONTEND_URL:', config.frontendUrl);
+console.log('VULNERABLE_SITE_URL:', config.vulnerableSiteUrl);
 // 3. Body parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
-
-// 4. General rate limiting
 app.use(generalRateLimiter);
 
 // 5. Response formatter — adds res.success() and res.error() helpers
 app.use(responseFormatter);
-
-// ─── ROUTES ─────────────────────────────────────────────────────────────────
-
 // Health check
 app.get('/api/health', (req, res) => {
   res.success({
@@ -62,6 +80,39 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
   }, 'AIzen server is running');
 });
+
+// Extended health check: includes v2 classifier readiness and model info
+app.get('/api/health/extended', async (req, res, next) => {
+  try {
+    const v2Enabled = v2Bridge.isEnabled();
+    let v2Loaded = false;
+    let v2Info = null;
+    if (v2Enabled) {
+      const clf = await v2Bridge.get();
+      v2Loaded = !!clf;
+      v2Info = clf ? { threshold: clf.threshold || null } : null;
+    }
+
+    return res.success({
+      status: 'healthy',
+      uptime: process.uptime(),
+      logsLoaded: logStore.isLoaded,
+      aiConfigured: aiClient.isConfigured(),
+      v2: { enabled: v2Enabled, loaded: v2Loaded, info: v2Info },
+      timestamp: new Date().toISOString(),
+    }, 'Extended health check');
+  } catch (err) {
+    next(err);
+  }
+});
+// 4. General rate limiting
+
+
+
+
+// ─── ROUTES ─────────────────────────────────────────────────────────────────
+
+
 
 // Log management routes
 app.use('/api', logRoutes);
@@ -75,6 +126,7 @@ app.use('/api/detect', detectRoutes);
 // Real-time SIEM (SSE) + demo traffic generator
 app.use('/api/realtime', realtimeRoutes);
 app.use('/api/demo', demoRoutes);
+app.use('/api/demo-dataset', require('./routes/datasetDemoRoutes'));
 
 // ─── ERROR HANDLING ─────────────────────────────────────────────────────────
 
@@ -86,10 +138,16 @@ app.use((req, res) => {
 // Global error handler (must be last)
 app.use(errorHandler);
 
+
+
+
 // ─── SERVER STARTUP ─────────────────────────────────────────────────────────
 
 async function startServer() {
   try {
+    // Download v2 model and training datasets if missing
+    await datasetDownloader.ensureAll();
+
     // Pre-load the default Apache log file if it exists
     const defaultLogPath = path.resolve(__dirname, '../data/Apache_2k.log');
     if (fs.existsSync(defaultLogPath)) {
@@ -103,9 +161,16 @@ async function startServer() {
 
     // Check AI configuration
     if (aiClient.isConfigured()) {
-      logger.info(`AI configured: ${aiClient.getInfo().provider} / ${aiClient.getInfo().model}`);
+      logger.info(`AI configured: ${aiClient.getInfo().provider} / ${aiClient.getInfo().defaultModel || 'n/a'}`);
     } else {
-      logger.warn('AI not configured — set NVIDIA_API_KEY in .env to enable AI features');
+      logger.warn('AI not configured — set OPENAI_API_KEY in .env to enable AI features');
+    }
+
+    // v2 deep classifier status
+    try {
+      logger.info(`v2 classifier enabled: ${config.v2.enabled} ${config.v2.modelPath ? `(${config.v2.modelPath})` : ''}`);
+    } catch (e) {
+      logger.debug('v2 status not available');
     }
 
     // Start listening

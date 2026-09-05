@@ -2,6 +2,8 @@ const parserFactory = require('../parsers/parserFactory');
 const rules = require('../rules/logRules');
 const config = require('../config/app.config');
 const logger = require('../utils/logger');
+const v2Bridge = require('../ml/v2Bridge');
+const telegram = require('../services/telegramService');
 
 /**
  * RealtimeHub — in-memory real-time SIEM feed (SSE).
@@ -38,11 +40,17 @@ class RealtimeHub {
   // ── Ingestion pipeline ─────────────────────────────────────────────────────
   /**
    * Parse + classify a raw line and broadcast it.
+   *
+   * v2 PRIMARY: when the deep model is enabled it runs on EVERY line and its
+   * attack verdict is merged with the deterministic rules BEFORE the event is
+   * published — a line v2 flags shows as Security/high immediately (no
+   * fire-and-forget, no post-hoc alert). When v2 is disabled this is exactly
+   * the legacy synchronous path.
    * @param {string} raw - one log line
    * @param {string} source - e.g. demo action id, 'manual'
-   * @returns {Object|null} the published event (null if line was blank)
+   * @returns {Promise<Object|null>} the published event (null if line was blank)
    */
-  ingestLine(raw, source = 'manual') {
+  async ingestLine(raw, source = 'manual') {
     const trimmed = (raw || '').trim();
     if (!trimmed) return null;
 
@@ -76,6 +84,20 @@ class RealtimeHub {
       securityTypes: cls.securityTypes,
       source,
     };
+
+    if (v2Bridge.isEnabled()) {
+      const v2 = await v2Bridge.classifyLine(trimmed);
+      if (v2 && v2.is_attack) {
+        event.category = 'Security';
+        event.severity = 'high';
+        event.level = 'error';
+        event.securityTypes = Array.from(new Set([...event.securityTypes, v2.attack_type]));
+        event.confidence = Math.round(v2.attack_confidence * 100);
+        event.v2Attack = v2.attack_type;
+        this.publish({ type: 'attack', event });
+        telegram.notify(event);
+      }
+    }
 
     this._record(event);
     this.publish({ type: 'log', event });
@@ -149,12 +171,15 @@ class RealtimeHub {
 
   // ── SSE client management ─────────────────────────────────────────────────
   subscribe(req, res) {
+    // Let Express CORS middleware handle CORS headers
     res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      Connection: 'keep-alive',
-      'X-Accel-Buffering': 'no',
-    });
+  'Content-Type': 'text/event-stream',
+  'Cache-Control': 'no-cache',
+  Connection: 'keep-alive',
+  'X-Accel-Buffering': 'no',
+  'Access-Control-Allow-Origin': 'http://localhost:5173',
+  'Vary': 'Origin',
+});
     res.write(': connected\n\n');
     res.write(`data: ${JSON.stringify({ type: 'snapshot', ...this.getSnapshot() })}\n\n`);
 
