@@ -132,3 +132,5 @@ v2/data/labels.json
 v2/data/train_report.json
 v2/data/tokenizer.json
 v2/datasets/
+datasets/
+data/
