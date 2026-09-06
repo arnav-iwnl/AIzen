@@ -85,6 +85,33 @@ class RealtimeHub {
       source,
     };
 
+    // Map classification severity to an event-level when it indicates a
+    // more serious condition than the parser-derived `entry.level`.
+    // This makes Security/high (or other high severities) surface as errors
+    // in the realtime feed even when the parser guessed `info`.
+    const severityToLevel = {
+      critical: 'critical',
+      high: 'error',
+      medium: 'warn',
+      low: 'notice',
+      info: 'info',
+    };
+
+    const levelPriority = {
+      debug: 0, info: 1, notice: 2, warn: 3, warning: 3, error: 4, err: 4,
+      crit: 5, critical: 5, alert: 6, emerg: 7,
+    };
+
+    const parsedLevel = (entry.level || 'info').toLowerCase();
+    const mapped = severityToLevel[(cls.severity || '').toLowerCase()];
+    if (mapped) {
+      const currentPr = levelPriority[parsedLevel] || 1;
+      const mappedPr = levelPriority[mapped] || 1;
+      if (mappedPr > currentPr) {
+        event.level = mapped;
+      }
+    }
+
     if (v2Bridge.isEnabled()) {
       const v2 = await v2Bridge.classifyLine(trimmed);
       if (v2 && v2.is_attack) {
