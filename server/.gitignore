@@ -123,14 +123,3 @@ tmp/
 *.bak
 *.backup
 
-# V2 Model artifacts (large files)
-v2/runtime/model.onnx
-v2/runtime/model.onnx.data
-v2/data/ballot.jsonl
-v2/data/ballot.synth.jsonl
-v2/data/labels.json
-v2/data/train_report.json
-v2/data/tokenizer.json
-v2/datasets/
-datasets/
-data/
