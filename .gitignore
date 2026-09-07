@@ -23,7 +23,7 @@ server/uploads/
 # Downloaded training corpora (loghub — GBs, research data)
 training-data/
 
-
+.github/workflows/
 v2
 # Temp
 tmp/

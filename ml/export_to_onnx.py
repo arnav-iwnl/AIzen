@@ -34,7 +34,7 @@ def main():
 
     # Run the v2 export
     try:
-        from export.export_onnx import export
+        from v2.export.export_onnx import export
     except Exception as exc:
         print("Failed to import v2 export module:", exc)
         return 1
