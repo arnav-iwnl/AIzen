@@ -1,0 +1,10 @@
+transformers>=4.40.0
+datasets
+accelerate
+evaluate
+optimum
+onnx
+onnxruntime
+torch
+scikit-learn
+huggingface-hub>=0.16.4
