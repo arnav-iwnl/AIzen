@@ -28,4 +28,5 @@ tmp/
 temp/
 vercel.md
 mocks/
-v2/
+.venv/
+opencode.json
