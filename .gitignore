@@ -23,10 +23,8 @@ server/uploads/
 # Downloaded training corpora (loghub — GBs, research data)
 training-data/
 
-v2/eval/
-v2/ingest/
-v2/prep/
-v2/train/
+
+v2
 # Temp
 tmp/
 temp/

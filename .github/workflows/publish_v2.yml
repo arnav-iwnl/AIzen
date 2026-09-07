@@ -24,11 +24,11 @@ jobs:
 
       - name: Run ONNX export (if checkpoint present)
         run: |
-          python -c "import os,sys; sys.path.insert(0,'v2'); from export.export_onnx import export; sys.exit(export())" || true
+          python -c "import os,sys; sys.path.insert(0,'v2'); from export.export_onnx import export; sys.exit(export())"
 
       - name: Validate model files
         run: |
-          ls -l v2/runtime || true
+          ls -l v2/runtime
           python -c "import json,sys; print('meta exists' if __import__('pathlib').Path('v2/runtime/meta.json').exists() else 'no meta'); sys.exit(0)"
 
       - name: Publish to Hugging Face (runtime + datasets)
