@@ -48,6 +48,10 @@ if (config.nodeEnv !== 'production') {
   ]).filter(Boolean);
 }
 
+// Vercel-hosted frontend (aizen-siem) — allow even if FRONTEND_URL differs
+allowedOrigins.push('https://aizen-siem.vercel.app');
+allowedOrigins = [...new Set(allowedOrigins.filter(Boolean))];
+
 app.use(cors({
   origin: (origin, callback) => {
     // Allow same-origin requests from tools (no origin) and allowed origins

@@ -32,7 +32,7 @@ services:
       - key: V2_CLASSIFIER
         value: onnx
       - key: FRONTEND_URL
-        value: https://aizen-frontend.onrender.com
+        value: https://aizen-siem.vercel.app
       - key: VULNERABLE_SITE_URL
         sync: false
       - key: TELEGRAM_BOT_TOKEN
