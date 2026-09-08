@@ -3,6 +3,8 @@ import { ChevronRight, Radio, Play, Upload, Menu } from 'lucide-react';
 import { usePathname, navigate } from './router';
 import { checkHealth } from './api';
 import NotificationBell from './components/NotificationBell';
+import { openRealtimeStream } from './api';
+import { addNotification, getNotifications, unreadCount } from './notificationStore';
 import RealtimeView from './views/RealtimeView';
 import DemoLabView from './views/DemoLabView';
 import UploadView from './views/UploadView';
@@ -18,6 +20,27 @@ function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [health, setHealth] = useState(null);
+  const [esRef, setEsRef] = useState(null);
+
+  // Global SSE connection — feeds NotificationBell on ALL pages
+  useEffect(() => {
+    const es = openRealtimeStream((payload) => {
+      if (payload.type === 'attack') {
+        const ev = payload.event;
+        addNotification({
+          type: ev.v2Attack,
+          confidence: ev.confidence,
+          message: ev.message,
+          ts: ev.ts,
+          level: ev.level,
+          securityTypes: ev.securityTypes,
+          ip: ev.ip,
+        });
+      }
+    }, () => setEsRef(null));
+    es.onopen = () => setEsRef(es);
+    return () => { if (esRef) esRef.close(); };
+  }, []);
 
   useEffect(() => {
     checkHealth()

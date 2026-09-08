@@ -27,17 +27,27 @@ function notify(event) {
   if (now - lastSentAt < COOLDOWN_MS) return;
   lastSentAt = now;
 
-  const ts = new Date(event.ts).toLocaleTimeString();
+  const ts = new Date(event.ts);
+  const hh = String(ts.getUTCHours()).padStart(2, '0');
+  const mm = String(ts.getUTCMinutes()).padStart(2, '0');
+  const dd = String(ts.getUTCDate()).padStart(2, '0');
+  const mo = String(ts.getUTCMonth() + 1).padStart(2, '0');
+  const yy = String(ts.getUTCFullYear()).slice(-2);
+  const timeStr = `${hh}:${mm} ${dd}/${mo}/${yy}`;
+
+  const threatLevel = event.level === 'error' || event.level === 'crit' || event.level === 'critical' ? 'Error' : 'Warn';
   const types = (event.securityTypes || []).join(', ');
-  const snippet = (event.message || '').slice(0, 120).replace(/</g, '&lt;');
+  const ip = event.ip || 'unknown';
+  const content = (event.raw || event.message || '').slice(0, 200);
 
   const text =
-    `\u{1f6a8} *Security Alert*\n` +
+    `⚠️ *Security Alert*\n` +
+    `*Threat:* ${threatLevel}\n` +
     `*Type:* ${types}\n` +
     `*Confidence:* ${event.confidence}%\n` +
-    `*Time:* ${ts}\n` +
-    `*Level:* ${event.level}\n` +
-    `\n\`${snippet}\``;
+    `*Time:* ${timeStr}\n` +
+    `*IP Address:* ${ip}\n` +
+    `*Content:* \`${content}\``;
 
   const payload = JSON.stringify({
     chat_id: config.telegram.channelId,

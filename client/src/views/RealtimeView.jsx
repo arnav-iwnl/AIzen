@@ -3,7 +3,6 @@ import { Radio, Trash2, ShieldAlert, Activity, AlertTriangle } from 'lucide-reac
 import { toast } from 'sonner';
 import { Badge, Button, Card, CardContent } from '../components/ui';
 import { openRealtimeStream, clearRealtime } from '../api';
-import { addNotification } from '../notificationStore';
 
 const LEVEL_VARIANT = {
   error: 'destructive', crit: 'destructive', critical: 'destructive', emerg: 'destructive',
@@ -74,14 +73,7 @@ export default function RealtimeView() {
             description: `${ev.confidence}% confidence \u2022 ${ev.message.slice(0, 80)}`,
             duration: 5000,
           });
-          addNotification({
-            type: ev.v2Attack,
-            confidence: ev.confidence,
-            message: ev.message,
-            ts: ev.ts,
-            level: ev.level,
-            securityTypes: ev.securityTypes,
-          });
+          // addNotification is now global in App.jsx
         }
       },
       () => setConnected(false)

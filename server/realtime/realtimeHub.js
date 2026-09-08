@@ -84,6 +84,7 @@ class RealtimeHub {
       confidence: cls.confidence,
       securityTypes: cls.securityTypes,
       source,
+      ip: entry.ip || null,
     };
 
     // Map classification severity to an event-level when it indicates a

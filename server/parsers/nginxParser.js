@@ -49,6 +49,11 @@ class NginxLogParser extends BaseParser {
     const timestamp = this.parseTimestamp(timestampStr);
     const fingerprint = generateFingerprint(level.toLowerCase(), message);
 
+    // Extract client IP if present: "client: 1.2.3.4"
+    let ip = null;
+    const clientMatch = message.match(/client:\s*(\S+)/);
+    if (clientMatch) ip = clientMatch[1];
+
     return {
       id: `log_${String(lineNumber).padStart(5, '0')}`,
       raw: trimmed,
@@ -58,6 +63,7 @@ class NginxLogParser extends BaseParser {
       fingerprint,
       lineNumber,
       parsedAt: new Date().toISOString(),
+      ip,
     };
   }
 

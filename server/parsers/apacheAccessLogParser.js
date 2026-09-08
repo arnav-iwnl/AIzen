@@ -66,6 +66,7 @@ class ApacheAccessLogParser extends BaseParser {
       fingerprint,
       lineNumber,
       parsedAt: new Date().toISOString(),
+      ip,
     };
   }
 

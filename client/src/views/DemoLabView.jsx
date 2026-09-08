@@ -5,7 +5,6 @@ import {
 import { toast } from 'sonner';
 import { Button, Card, CardContent } from '../components/ui';
 import { openRealtimeStream, getDatasetDemoSources, triggerDatasetDemo, controlDatasetDemoStream, clearRealtime } from '../api';
-import { addNotification } from '../notificationStore';
 
 const LEVEL_COLOR = {
   error: 'text-red-400', crit: 'text-red-400', critical: 'text-red-400', emerg: 'text-red-400',
@@ -86,14 +85,7 @@ export default function DemoLabView() {
           description: `${ev.confidence}% confidence - ${(ev.message || '').slice(0, 70)}`,
           duration: 5000,
         });
-        addNotification({
-          type: ev.v2Attack,
-          confidence: ev.confidence,
-          message: ev.message,
-          ts: ev.ts,
-          level: ev.level,
-          securityTypes: ev.securityTypes,
-        });
+        // addNotification is now global in App.jsx
       }
     }, () => setConnected(false));
     es.onopen = () => setConnected(true);
