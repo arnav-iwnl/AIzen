@@ -3,6 +3,7 @@ const path = require('path');
 const parserFactory = require('../parsers/parserFactory');
 const rules = require('../rules/logRules');
 const realtimeHub = require('../realtime/realtimeHub');
+const v2Bridge = require('../ml/v2Bridge');
 const config = require('../config/app.config');
 const logger = require('../utils/logger');
 
@@ -184,11 +185,22 @@ class DemoService {
     const safe = Math.min(Math.max(parseInt(count, 10) || 1, 1), config.demo.maxBurst);
     const target = this.ACTIONS.find((a) => a.id === action) ? action : 'mixed';
 
-    let generated = 0;
+    const rawLines = [];
     for (let i = 0; i < safe; i++) {
       try {
-        const line = this._makeLine(target);
-        if (await realtimeHub.ingestLine(line, target)) generated++;
+        rawLines.push(this._makeLine(target));
+      } catch { /* skip */ }
+    }
+
+    // Batch v2 classification — one ONNX inference for all lines
+    const v2Results = v2Bridge.isEnabled()
+      ? await v2Bridge.classifyBatch(rawLines)
+      : rawLines.map(() => null);
+
+    let generated = 0;
+    for (let i = 0; i < rawLines.length; i++) {
+      try {
+        if (await realtimeHub.ingestLine(rawLines[i], target, v2Results[i])) generated++;
       } catch (err) {
         logger.warn(`[demo] line failed for ${target}: ${err.message}`);
       }

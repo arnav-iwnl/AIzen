@@ -56,4 +56,25 @@ async function classifyLine(message) {
   }
 }
 
-module.exports = { get, isEnabled, classifyLine };
+/**
+ * Classify multiple lines in one ONNX inference pass.
+ * Returns array of { is_attack, attack_type, attack_confidence } or nulls.
+ * @param {string[]} messages
+ * @returns {Promise<Array<Object|null>>}
+ */
+async function classifyBatch(messages) {
+  const clf = await get();
+  if (!clf || !messages.length) return messages.map(() => null);
+  try {
+    const results = await clf.classifyBatch(messages);
+    return results.map((r) => ({
+      is_attack: !!r.is_attack,
+      attack_type: r.attack_type,
+      attack_confidence: r.attack_confidence,
+    }));
+  } catch (err) {
+    return messages.map(() => null);
+  }
+}
+
+module.exports = { get, isEnabled, classifyLine, classifyBatch };

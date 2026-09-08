@@ -15,6 +15,7 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 const realtimeHub = require('../realtime/realtimeHub');
+const v2Bridge = require('../ml/v2Bridge');
 const config = require('../config/app.config');
 const logger = require('../utils/logger');
 
@@ -138,6 +139,7 @@ class DatasetDemoService {
 
   /**
    * Fire `count` lines from the chosen source into the realtime hub.
+   * Uses batch v2 classification when enabled for much faster throughput.
    * Returns { generated, attacks } where attacks is the number the v2/pipeline
    * classified as Security.
    */
@@ -147,14 +149,22 @@ class DatasetDemoService {
     if (!lines.length) return { generated: 0, attacks: 0 };
 
     const safe = Math.min(Math.max(count, 1), config.demo.maxBurst);
+    const rawLines = [];
+    for (let i = 0; i < safe; i++) {
+      const raw = this._pick(lines);
+      rawLines.push(this.wrapAsLog(raw));
+    }
+
+    // Batch v2 classification — one ONNX inference for all lines
+    const v2Results = v2Bridge.isEnabled()
+      ? await v2Bridge.classifyBatch(rawLines)
+      : rawLines.map(() => null);
+
     let generated = 0;
     let attacks = 0;
-
-    for (let i = 0; i < safe; i++) {
+    for (let i = 0; i < rawLines.length; i++) {
       try {
-        const raw = this._pick(lines);
-        const logLine = this.wrapAsLog(raw);
-        const ev = await realtimeHub.ingestLine(logLine, `dataset:${source}`);
+        const ev = await realtimeHub.ingestLine(rawLines[i], `dataset:${source}`, v2Results[i]);
         if (ev) {
           generated++;
           if (ev.category === 'Security') attacks++;

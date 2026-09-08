@@ -1,6 +1,6 @@
 services:
   # ─────────────────────────────────────────────────────────────
-  # Backend API Service
+  # Backend API Service (free tier — 512MB RAM)
   # ─────────────────────────────────────────────────────────────
   - type: web
     name: aizen-backend
@@ -35,14 +35,14 @@ services:
         value: https://aizen-frontend.onrender.com
       - key: VULNERABLE_SITE_URL
         sync: false
-      - key: HF_TOKEN
-        sync: false
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: TELEGRAM_CHANNEL_ID
         sync: false
       - key: DATASET_BUCKET_URL
         sync: false
+      - key: UPLOAD_MAX_SIZE_MB
+        value: "50"
 
   # ─────────────────────────────────────────────────────────────
   # Frontend Static Site

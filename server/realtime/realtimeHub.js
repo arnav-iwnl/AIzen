@@ -48,9 +48,10 @@ class RealtimeHub {
    * the legacy synchronous path.
    * @param {string} raw - one log line
    * @param {string} source - e.g. demo action id, 'manual'
+   * @param {Object|null} preV2 - pre-computed v2 result (skips ONNX inference)
    * @returns {Promise<Object|null>} the published event (null if line was blank)
    */
-  async ingestLine(raw, source = 'manual') {
+  async ingestLine(raw, source = 'manual', preV2 = null) {
     const trimmed = (raw || '').trim();
     if (!trimmed) return null;
 
@@ -113,7 +114,7 @@ class RealtimeHub {
     }
 
     if (v2Bridge.isEnabled()) {
-      const v2 = await v2Bridge.classifyLine(trimmed);
+      const v2 = preV2 || await v2Bridge.classifyLine(trimmed);
       if (v2 && v2.is_attack) {
         event.category = 'Security';
         event.severity = 'high';

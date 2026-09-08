@@ -78,9 +78,9 @@ const config = {
     poolSize: parseInt(process.env.DEMO_POOL_SIZE, 10) || 15,
   },
 
-  // File Upload
+  // File Upload — 50MB cap keeps us safe under Render free tier's 512MB RAM
   upload: {
-    maxFileSizeMb: 200,
+    maxFileSizeMb: parseInt(process.env.UPLOAD_MAX_SIZE_MB, 10) || 50,
     allowedExtensions: ['.log', '.txt'],
   },
 
