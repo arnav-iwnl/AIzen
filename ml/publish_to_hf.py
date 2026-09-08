@@ -44,6 +44,10 @@ DEFAULT_DATA_FILES = [
     (ROOT / "v2" / "data" / "test.log", "data/test.log"),
     (ROOT / "v2" / "data" / "Apache_2k.log", "data/Apache_2k.log"),
     (ROOT / "v2" / "data" / "synthetic_error.log", "data/synthetic_error.log"),
+    (ROOT / "v2" / "datasets" / "http-attack-requests" / "hf.jsonl", "datasets/http-attack-requests/hf.jsonl"),
+    (ROOT / "v2" / "datasets" / "malicious-urls" / "malicious_phish.csv", "datasets/malicious-urls/malicious_phish.csv"),
+    (ROOT / "v2" / "datasets" / "web-attacks" / "hf.jsonl", "datasets/web-attacks/hf.jsonl"),
+    (ROOT / "v2" / "datasets" / "web-attack-detection" / "hf.jsonl", "datasets/web-attack-detection/hf.jsonl"),
 ]
 
 

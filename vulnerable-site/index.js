@@ -37,7 +37,9 @@ const PORT = process.env.PORT || 5000;
 const AIZEN_BACKEND_URL = process.env.AIZEN_BACKEND_URL || 'http://localhost:3000';
 const AIZEN_FRONTEND_URL = process.env.AIZEN_FRONTEND_URL || 'http://localhost:5173';
 
-// Middleware
+// Trust proxy to get real client IP from X-Forwarded-For header (Render load balancer)
+app.set('trust proxy', true);
+
 app.use(cors({
   origin: [AIZEN_FRONTEND_URL, 'http://localhost:5173', 'http://localhost:3000'],
   methods: ['GET', 'POST', 'OPTIONS'],
