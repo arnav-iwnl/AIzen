@@ -32,12 +32,18 @@ except Exception:  # pragma: no cover
 ROOT = Path(".")
 RUNTIME_FILES = [
     (ROOT / "v2" / "runtime" / "model.onnx", "runtime/model.onnx"),
+    (ROOT / "v2" / "runtime" / "model.onnx.data", "runtime/model.onnx.data"),
     (ROOT / "v2" / "runtime" / "meta.json", "runtime/meta.json"),
+    (ROOT / "v2" / "runtime" / "tokenizer.js", "runtime/tokenizer.js"),
 ]
 
 
 DEFAULT_DATA_FILES = [
     (ROOT / "v2" / "data" / "best.pt", "data/best.pt"),
+    (ROOT / "v2" / "data" / "access.log", "data/access.log"),
+    (ROOT / "v2" / "data" / "test.log", "data/test.log"),
+    (ROOT / "v2" / "data" / "Apache_2k.log", "data/Apache_2k.log"),
+    (ROOT / "v2" / "data" / "synthetic_error.log", "data/synthetic_error.log"),
 ]
 
 
@@ -49,8 +55,8 @@ def collect_dataset_files():
         return out
     for p in sorted(base.rglob("*")):
         if p.is_file():
-            rel = p.relative_to(ROOT / "v2" / "data")
-            out.append((p, Path("data") / rel))
+            rel = p.relative_to(ROOT / "v2")
+            out.append((p, Path("v2") / rel))
     return out
 
 
