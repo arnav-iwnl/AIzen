@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 const preprocessor = require('../services/preprocessor');
 const logStore = require('../store/logStore');
 const logger = require('../utils/logger');
@@ -41,6 +42,32 @@ const upload = multer({
 });
 
 /**
+ * Decompress a .gz upload to a plain log file, then delete the archive.
+ * @param {string} gzPath - path to the compressed file
+ * @param {string} outPath - path to write the decompressed log
+ */
+function gunzipFile(gzPath, outPath) {
+  return new Promise((resolve, reject) => {
+    const gunzip = zlib.createGunzip();
+    const src = fs.createReadStream(gzPath);
+    const dest = fs.createWriteStream(outPath);
+    src.pipe(gunzip).pipe(dest);
+    gunzip.on('error', (err) => {
+      try { fs.unlinkSync(outPath); } catch { /* ignore */ }
+      reject(err);
+    });
+    dest.on('error', (err) => {
+      try { fs.unlinkSync(outPath); } catch { /* ignore */ }
+      reject(err);
+    });
+    dest.on('finish', () => {
+      try { fs.unlinkSync(gzPath); } catch { /* ignore */ }
+      resolve();
+    });
+  });
+}
+
+/**
  * POST /api/upload
  * Upload a log file and parse it into memory.
  */
@@ -52,8 +79,17 @@ router.post('/logs/upload', upload.single('logfile'), async (req, res, next) => 
     if (req.file) {
       // File uploaded via multipart form (saved to disk)
       fileName = req.file.originalname;
-      const filePath = req.file.path;
-      
+      let filePath = req.file.path;
+
+      // Decompress gzip uploads (client compresses before POST to avoid
+      // Render's CDN/WAF blocking bodies containing attack payloads).
+      if (fileName.toLowerCase().endsWith('.gz')) {
+        const plainPath = filePath.replace(/\.gz$/i, '');
+        await gunzipFile(filePath, plainPath);
+        filePath = plainPath;
+        fileName = fileName.replace(/\.gz$/i, '');
+      }
+
       // Process the log file stream
       result = await preprocessor.processFileStream(filePath, fileName);
     } else if (req.body && req.body.content) {

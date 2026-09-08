@@ -79,9 +79,10 @@ const config = {
   },
 
   // File Upload — 50MB cap keeps us safe under Render free tier's 512MB RAM
+  // '.gz' allowed for gzip-compressed uploads (client compresses before POST).
   upload: {
     maxFileSizeMb: parseInt(process.env.UPLOAD_MAX_SIZE_MB, 10) || 50,
-    allowedExtensions: ['.log', '.txt'],
+    allowedExtensions: ['.log', '.txt', '.gz'],
   },
 
   // Telegram breach notifications (opt-in via env)

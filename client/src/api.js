@@ -2,10 +2,14 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 /**
  * Upload a log file to the backend.
+ * Gzips client-side (CompressionStream) so Render's CDN/WAF won't block the
+ * body when the file contains attack payloads (e.g. ../../../etc/passwd).
  */
 export async function uploadLogFile(file) {
+  const stream = file.stream().pipeThrough(new CompressionStream('gzip'));
+  const gzBlob = await new Response(stream).blob();
   const formData = new FormData();
-  formData.append('logfile', file);
+  formData.append('logfile', gzBlob, `${file.name}.gz`);
 
   const res = await fetch(`${API_BASE}/logs/upload`, {
     method: 'POST',
