@@ -28,7 +28,7 @@ function App() {
       if (payload.type === 'attack') {
         const ev = payload.event;
         addNotification({
-          type: ev.v2Attack,
+          type: ev.v2Attack || (ev.category === 'Security' ? 'security' : 'error'),
           confidence: ev.confidence,
           message: ev.message,
           ts: ev.ts,

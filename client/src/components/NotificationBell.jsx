@@ -7,7 +7,10 @@ const TYPE_LABELS = {
   xss: { label: 'XSS', color: 'text-amber-400' },
   'path-traversal': { label: 'Path Traversal', color: 'text-orange-400' },
   scanner: { label: 'Scanner', color: 'text-violet-400' },
+  bruteforce: { label: 'Brute Force', color: 'text-red-400' },
   'brute-force': { label: 'Brute Force', color: 'text-red-400' },
+  security: { label: 'Security Event', color: 'text-rose-400' },
+  error: { label: 'Error', color: 'text-red-400' },
 };
 
 export default function NotificationBell() {

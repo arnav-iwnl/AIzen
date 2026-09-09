@@ -123,10 +123,18 @@ class RealtimeHub {
         event.securityTypes = Array.from(new Set([...event.securityTypes, v2.attack_type]));
         event.confidence = Math.round(v2.attack_confidence * 100);
         event.v2Attack = v2.attack_type;
-        this.publish({ type: 'attack', event });
-        logger.info('[realtime] attack event', { v2Attack: v2.attack_type, ip: event.ip, telegramEnabled: telegram.isEnabled() });
-        telegram.notify(event);
       }
+    }
+
+    // Notify (bell + Telegram) for any Security or Error-level event, not just
+    // v2-flagged attacks — rules-detected threats and app errors alert too.
+    const shouldNotify =
+      event.category === 'Security' ||
+      ['error', 'crit', 'critical', 'emerg', 'alert'].includes(event.level);
+    if (shouldNotify) {
+      this.publish({ type: 'attack', event });
+      logger.info('[realtime] notify', { category: event.category, level: event.level, v2Attack: event.v2Attack, ip: event.ip, telegramEnabled: telegram.isEnabled() });
+      telegram.notify(event);
     }
 
     this._record(event);
