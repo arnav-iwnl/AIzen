@@ -43,9 +43,17 @@ function App() {
   }, []);
 
   useEffect(() => {
-    checkHealth()
-      .then(d => setHealth(d))
-      .catch(() => setHealth({ status: 'error' }));
+    let dead = false;
+    let timer;
+    const randomDelay = () => 5000 + Math.random() * 5000;
+    const ping = () => {
+      checkHealth()
+        .then((d) => { if (!dead) setHealth(d); })
+        .catch(() => { if (!dead) setHealth({ status: 'error' }); });
+      if (!dead) timer = setTimeout(ping, randomDelay());
+    };
+    timer = setTimeout(ping, randomDelay());
+    return () => { dead = true; clearTimeout(timer); };
   }, []);
 
   const isActive = (item) => {
