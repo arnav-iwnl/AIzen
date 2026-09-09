@@ -22,10 +22,22 @@ function isEnabled() {
  * @param {Object} event - the realtime event object
  */
 function notify(event) {
-  if (!isEnabled()) return;
+  if (!isEnabled()) {
+    logger.debug('[telegram] disabled - skipping notify');
+    return;
+  }
   const now = Date.now();
-  if (now - lastSentAt < COOLDOWN_MS) return;
+  if (now - lastSentAt < COOLDOWN_MS) {
+    logger.debug('[telegram] cooldown active - skipping notify');
+    return;
+  }
   lastSentAt = now;
+
+  logger.info('[telegram] sending notification', { 
+    id: event.id, 
+    v2Attack: event.v2Attack, 
+    ip: event.ip 
+  });
 
   const ts = new Date(event.ts);
   const hh = String(ts.getUTCHours()).padStart(2, '0');
@@ -41,7 +53,7 @@ function notify(event) {
   const content = (event.raw || event.message || '').slice(0, 200);
 
   const text =
-    `⚠️ *Security Alert*\n` +
+    `\u{26a0}\u{fe0f} *Security Alert*\n` +
     `*Threat:* ${threatLevel}\n` +
     `*Type:* ${types}\n` +
     `*Confidence:* ${event.confidence}%\n` +
@@ -52,7 +64,6 @@ function notify(event) {
   const payload = JSON.stringify({
     chat_id: config.telegram.channelId,
     text,
-    parse_mode: 'Markdown',
   });
 
   const options = {
@@ -69,6 +80,8 @@ function notify(event) {
     res.on('end', () => {
       if (res.statusCode !== 200) {
         logger.warn(`[telegram] API ${res.statusCode}: ${body.slice(0, 200)}`);
+      } else {
+        logger.info('[telegram] notification sent successfully');
       }
     });
   });

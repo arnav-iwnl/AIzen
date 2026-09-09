@@ -1,5 +1,10 @@
+const fs = require('fs');
+const path = require('path');
 const winston = require('winston');
 const config = require('../config/app.config');
+
+const logDir = path.resolve(__dirname, '../logs');
+if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
 
 const logger = winston.createLogger({
   level: config.nodeEnv === 'production' ? 'info' : 'debug',
@@ -18,6 +23,13 @@ const logger = winston.createLogger({
           return `${timestamp} [${service}] ${level}: ${message}${metaStr}`;
         })
       ),
+    }),
+    new winston.transports.File({
+      filename: path.join(logDir, 'aizen.log'),
+      format: winston.format.printf(({ timestamp, level, message, ...meta }) => {
+        const metaStr = Object.keys(meta).length ? ` ${JSON.stringify(meta)}` : '';
+        return `${timestamp} [${level}] ${message}${metaStr}`;
+      }),
     }),
   ],
 });

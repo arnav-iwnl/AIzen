@@ -1,72 +1,79 @@
 # AIzen Architecture
 
-AIzen is an intelligent log analysis engine built with a Node.js/Express backend and a React/Vite frontend. It uses advanced LLM capabilities (via Google Gemini) to classify log events, generate chronological timelines, and perform root-cause analysis (RCA).
+AIzen is an AI-powered SIEM with a Node.js/Express backend, a React/Vite dashboard, and an intentionally vulnerable demo app. It performs realtime breach detection with a local deep ONNX classifier, plus LLM-assisted log classification, incident timelines, and root-cause analysis (RCA).
 
 ## System Architecture
 
 ```mermaid
 graph TD
-    Client[React/Vite Frontend] --> |REST API| Express[Express Backend]
-    
+    Vuln[Vulnerable Site :5000] -->|POST /api/realtime/ingest| RealHub[RealtimeHub]
+    Client[React/Vite Frontend] -->|REST API / SSE| Express[Express Backend :3000]
+
     subgraph Backend
-        Express --> Router[API Routes]
-        Router --> LogStore[(In-Memory LogStore)]
-        Router --> TimelineService[Timeline Service]
-        Router --> RootCauseService[Root Cause Service]
-        Router --> Preprocessor[Stream Preprocessor]
-        
-        Preprocessor --> ParserFactory[Parser Factory]
-        ParserFactory -.-> ApacheLogParser
-        ParserFactory -.-> ApacheAccessLogParser
-        Preprocessor --> LogStore
-        
-        TimelineService --> ContextSelector[Context Selector]
+        Express --> Routes[API Routes]
+        Routes --> RealHub[RealtimeHub &#40;SSE hub, ring buffer&#41;]
+        Routes --> LogStore[(In-Memory LogStore)]
+        Routes --> TimelineService[Timeline Service]
+        Routes --> RootCauseService[Root Cause Service]
+        Routes --> Demo[Demo Services]
+
+        RealHub --> Parsers[Parser Factory]
+        RealHub --> Rules[Rule Engine &#40;v1 heuristics&#41;]
+        RealHub --> V2[V2Bridge]
+        V2 --> ONNX[ONNX Deep Classifier &#40;CPU in-process&#41;]
+        RealHub --> Telegram[Telegram Service]
+        RealHub --> BellNotifications[SSE attack events -> frontend bell]
+
+        LogStore --> Preprocessor[Stream Preprocessor]
+        Preprocessor --> Parsers
+        LogStore --> ContextSelector[Context Selector]
+        TimelineService --> ContextSelector
         RootCauseService --> ContextSelector
-        
-        ContextSelector --> LogStore
-        
         TimelineService --> AIClient[AI Client]
         RootCauseService --> AIClient
+
+        Demo --> Datasets[(HuggingFace datasets / payload pools)]
+        Datasets --> DatasetDownloader[Dataset Downloader]
     end
-    
-    AIClient --> |API Request| LLM[Google Gemini API]
-    AIClient -.-> |Fallback API| NIM[NVIDIA NIM / OpenAI API]
+
+    AIClient -->|OpenAI-compatible| LLM[Gemini / NIM / OpenAI API]
 ```
 
 ## Key Components
 
-### 1. Stream-Based Preprocessing & Log Parsing
-To prevent memory exhaustion when analyzing huge datasets, AIzen uses a **streaming ingestion pipeline**:
-- File uploads are streamed directly to disk.
-- Node.js `readline` processes the file line-by-line in batches.
-- The `ParserFactory` automatically detects the log format (e.g., Apache Error, Apache Access).
-- Parsed logs are batched into `LogStore` to prevent Event Loop blocking.
+### 1. Parsing & Streaming Ingestion
+- Uploads (`multipart`, `.log`/`.txt`/`.gz`) stream to disk and are processed line-by-line with `readline` — 100K+ lines without exhausting memory.
+- Clients can gzip the upload client-side; the server gunzips before parsing.
+- `ParserFactory` auto-detects format — Apache Error, Apache Access, Nginx — and extracts structured fields **including the client IP**.
 
-### 2. The Context Selector (The Secret Sauce)
-Large log files easily exceed LLM token limits (even with Gemini's 1M context, 50,000 log lines is slow and expensive). 
+### 2. Realtime Detection Pipeline (`RealtimeHub`)
+Every ingested line (from uploads or `POST /api/realtime/ingest`) goes through:
+1. **Rules engine (v1):** heuristic keyword/pattern detection (brute force, SQLi, errors…).
+2. **v2 deep classifier:** when `V2_CLASSIFIER=onnx`, lines/`classifyBatch` run through the in-process ONNX model, emitting an attack type (`xss`, `sql-injection`, `path-traversal`, `bruteforce`, `scanner`, …) above `V2_THRESHOLD`.
+3. **Fan-out:** classified events are pushed over SSE (`type: 'attack'` / `type: 'log'`) and recorded in a ring buffer with running counters, available via `/api/realtime/snapshot`.
 
-The `ContextSelector` solves this by **never sending raw logs to the LLM**. Instead, it uses:
-- **Fingerprinting & Deduplication:** "Connection refused on port 8080" and "Connection refused on port 8081" are grouped into a single pattern `Connection refused on port <NUM>`.
-- **Time Windowing:** Errors are grouped into hourly buckets so the LLM understands temporal relationships without seeing every timestamp.
-- **Stratified Sampling:** For chronological sequences, a representative sample is taken across the time range.
-- **Context Windows:** When a specific error is found, the system pulls `±5` lines of surrounding logs to provide local context, discarding the rest of the noise.
+### 3. Notifications
+- **Bell:** the frontend keeps a global SSE connection and adds an alert for every `attack` event.
+- **Telegram:** the `TelegramService` sends a plain-text alert (threat level, attack type, confidence, time, IP, raw content) to a channel with a 5s cooldown. Messages are plain text (no Markdown) so attacker-controlled content can never break parsing.
 
-*Result: A 180KB log file is compressed into a 6KB highly-structured prompt, reducing token usage by ~95% while improving LLM reasoning.*
+### 4. Log Classification, Timelines & RCA (Analysis API)
+- The **ContextSelector** never sends raw logs to the LLM: it fingerprints & deduplicates (`Connection refused on port <NUM>`), time-windows into buckets, stratifies samples, and slices ±N surrounding lines.
+- The **AI Client** routes OpenAI-compatible requests with automatic failover and records every request/response to `mocks/api_calls/` for offline regression testing. Without an API key, analysis degrades to the local `classifier` mode.
 
-### 3. Prompt Engineering & Response Parsing
-The system uses native JSON response mode (`response_format: { type: 'json_object' }`) to guarantee structured output. The `ResponseParser` handles edge cases (like trailing commas, markdown code fences, or embedded arrays) to ensure the UI always receives valid data. Prompt constraints are tightly enforced to prevent token limit truncations on massive datasets.
+### 5. Demo Lab
+`/api/demo/trigger` and `/api/demo/stream` replay pre-baked payload pools (SQLi, XSS, brute force, path traversal, floods) through the same realtime pipeline; `datasetDemoService` batches lines through v2 before ingestion.
 
-### 4. Frontend Dashboard
-Built with Vite, the dashboard orchestrates the APIs in a wizard-like flow. It visually connects the classification results, incident timeline, and root cause recovery plan into a single coherent incident report.
+### 6. Vulnerable Site
+A separate Express service (`/product` SQLi, `/search` & `/profile` XSS, `/download` path traversal, `/login` brute force, `/api/admin`) logs every request in Apache format and forwards it to the backend's realtime ingest endpoint.
 
-### 5. Multi-Model AI Routing
-AIzen features an intelligent fallback mechanism. If the primary model fails or experiences rate limits, `AIClient` automatically fails over to an alternative provider via an OpenAI-compatible endpoint (like NVIDIA NIM's DeepSeek/Mistral hosting).
-
-### 6. AI Request Interception & Mocking (Testing)
-For continuous integration and offline testing, the `AIClient` is equipped with an interception layer. Every actual API request sent to the LLM (including the final system prompt, user prompt, and model configuration) along with the raw response is automatically logged and saved as a timestamped JSON file in `mocks/api_calls/`. This creates a reliable repository of real-world test data to validate frontend parsing and edge-case handling without consuming additional API credits.
+### 7. Infrastructure
+- **Observability:** Winston logs to console and `server/logs/aizen.log`.
+- **Deployment:** `render.yaml` defines backend, frontend (static), and vulnerable-site services; frontend typically on Vercel.
+- **Testing:** `npm run smoke` covers upload→classify→timeline→RCA; `npm run smoke:realtime` covers the hub ingest/SSE paths.
 
 ## Tech Stack
-- **Frontend:** React, Vite, Reshaped UI v4, Lucide React
-- **Backend:** Node.js, Express, express-rate-limit, multer
-- **AI Provider:** Multi-model Routing (Google Gemini, NVIDIA NIM, OpenAI-compatible)
-- **Deployment:** Vercel (Frontend), Render (Backend)
+- **Frontend:** React 19, Vite, Tailwind CSS, Lucide React, Sonner (toasts)
+- **Backend:** Node.js, Express, multer, express-rate-limit, winston
+- **Detection:** Python v2 pipeline (PyTorch → ONNX, `onnxruntime`) loaded in-process; rule engine for v1
+- **AI Provider:** Multi-model OpenAI-compatible routing (Gemini / NVIDIA NIM / OpenAI)
+- **Deployment:** Render (backend, vulnerable site, static), Vercel (frontend), Hugging Face (datasets/models)

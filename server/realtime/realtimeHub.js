@@ -124,6 +124,7 @@ class RealtimeHub {
         event.confidence = Math.round(v2.attack_confidence * 100);
         event.v2Attack = v2.attack_type;
         this.publish({ type: 'attack', event });
+        logger.info('[realtime] attack event', { v2Attack: v2.attack_type, ip: event.ip, telegramEnabled: telegram.isEnabled() });
         telegram.notify(event);
       }
     }
