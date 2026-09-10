@@ -52,8 +52,17 @@ const SECURITY_PATTERNS = [
   { type: 'PATH_TRAVERSAL', regex: /(?:\/etc\/passwd|\.\.\/|\.\.\\|\/proc\/|\/var\/log)/i },
   { type: 'ADMIN_BRUTE_FORCE', regex: /(?:\/administrator\/|\/admin\/|\/wp-admin|\/login).*(?:POST|5\d{2})/i },
   { type: 'DIRECTORY_FORBIDDEN', regex: /(?:Directory index forbidden|forbidden by rule)/i },
-  { type: 'CREDENTIAL_PROBE', regex: /(?:task=user\.login|task=registration|\/wp-login|auth|token)/i },
+  { type: 'CREDENTIAL_PROBE', regex: /(?:task=user\.login|task=registration|\/wp-login|auth|token|\/\.env|\.env\.|\/\.ssh\/|\/\.docker\/|\/config\.|\/credentials?\/|\/secret\/|\/kube\/|\/aws\/|\/\.aws\/|\/gcp\/|\/\.gcp\/|\/azure\/|\/\.azure\/|\/\.ssh\/|id_rsa|id_ecdsa|\.pem|\.key|\.bak|\.tmp|\/admin\/|\/\.git\/|\/\.svn\/|\/\.hg\/)/i },
   { type: 'AUTH_FAILURE', regex: /(?:Failed password|authentication failure|invalid user|pam_authenticate|login attempt.*fail)/i },
+];
+
+// Nginx error log signals — operational (Warning), NOT security attacks.
+const NGINX_ERROR_PATTERNS = [
+  { type: 'NGINX_UPSTREAM_FAILURE', regex: /(?:upstream|connect\(\) failed|no live upstreams|upstream timed out|upstream connection)/i },
+  { type: 'NGINX_SSL_HANDSHAKE_FAILURE', regex: /(?:SSL_do_handshake.*failed|bad handshake|bad certificate|SSL routines.*error|handshake failure)/i },
+  { type: 'NGINX_CONFIG_WARNING', regex: /(?:conflicting server name|low address bits|meaningless|duplicate.*server|rewrite.*directive)/i },
+  { type: 'NGINX_CRITICAL_ERROR', regex: /\[crit\]|\[emerg\]|\[alert\]/i },
+  { type: 'NGINX_UPSTREAM_TIMEOUT', regex: /upstream timed out/i },
 ];
 
 // Ordered category rules — first match wins. Security first.
@@ -101,6 +110,10 @@ function classify(opts) {
   for (const { type, regex } of SECURITY_PATTERNS) {
     if (regex.test(text)) securityTypes.push(type);
   }
+  const nginxSignals = [];
+  for (const { type, regex } of NGINX_ERROR_PATTERNS) {
+    if (regex.test(text)) nginxSignals.push(type);
+  }
 
   let category = null;
   let severity = LEVEL_SEVERITY[level] || 'medium';
@@ -112,6 +125,12 @@ function classify(opts) {
     severity = 'high';
     confidence = 92;
     matchedRule = `security:${securityTypes[0]}`;
+  } else if (nginxSignals.length > 0) {
+    category = 'Warning';
+    severity = 'warning';
+    confidence = 85;
+    matchedRule = `nginx:${nginxSignals[0]}`;
+    securityTypes.push(...nginxSignals);
   } else if (status) {
     if (status >= 500) {
       category = 'Error';
@@ -146,9 +165,9 @@ function classify(opts) {
   }
 
   if (!category) {
-    category = 'Unknown';
+    category = 'Clean';
     confidence = 60;
-    matchedRule = 'fallback:unknown';
+    matchedRule = 'fallback:clean';
   }
 
   if (status && STATUS_SEVERITY[status] && (status >= 400 || status === 429)) {
@@ -164,11 +183,12 @@ module.exports = {
   STATUS_SEVERITY,
   STATUS_CATEGORY,
   SECURITY_PATTERNS,
+  NGINX_ERROR_PATTERNS,
   CATEGORY_RULES,
   CATEGORIES: [
     'Startup', 'Shutdown', 'Configuration', 'Worker Initialization', 'Backend Communication',
     'Warning', 'Error', 'Performance', 'Security', 'Request Processing', 'Resource Not Found',
-    'Network', 'Service Instability', 'Unknown',
+    'Network', 'Service Instability', 'Clean',
   ],
   SEVERITIES: ['critical', 'high', 'medium', 'low', 'info'],
 };

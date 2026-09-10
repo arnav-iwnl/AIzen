@@ -67,7 +67,7 @@ function App() {
     <div className="flex h-screen bg-[#0a0a0a] text-white font-sans antialiased">
       {/* ── Sidebar ─────────────────────────────────────────────── */}
       <div
-        className={`${sidebarCollapsed ? "w-16" : "w-70"} bg-neutral-900 border-r border-neutral-700 transition-all duration-300 flex-shrink-0 fixed inset-y-0 left-0 z-50 md:relative md:inset-auto md:z-auto h-full transform ${mobileOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
+        className={`${sidebarCollapsed ? "w-16" : "w-70"} bg-neutral-900 border-r border-neutral-700 transition-all duration-300 flex-shrink-0 fixed inset-y-0 left-0 z-50 md:relative md:inset-auto md:z-auto h-full transform ${mobileOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 print:hidden`}
       >
         <div className="flex flex-col h-full overflow-y-auto p-4">
           <div className="flex items-center justify-between mb-8">
@@ -145,7 +145,7 @@ function App() {
       {/* ── Main Content ────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Toolbar */}
-        <div className="h-16 bg-neutral-800 border-b border-neutral-700 flex items-center justify-between px-4 md:px-6 flex-shrink-0">
+        <div className="h-16 bg-neutral-800 border-b border-neutral-700 flex items-center justify-between px-4 md:px-6 flex-shrink-0 print:hidden">
           <div className="flex items-center gap-4">
             <button
               className="md:hidden text-neutral-300 hover:text-orange-500 transition-colors"

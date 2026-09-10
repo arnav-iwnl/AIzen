@@ -85,7 +85,7 @@ const CATEGORY_COLORS = {
   'Module Lifecycle': '#818cf8', 'Worker Management': '#34d399', 'Request Processing': '#2dd4bf',
   'Client Error (4xx)': '#fb923c', 'Server Error (5xx)': '#f87171', 'Resource Not Found': '#fbbf24',
   'Backend Communication': '#38bdf8', 'Performance': '#e879f9', 'Security': '#f43f5e',
-  'Network': '#4ade80', 'Warning': '#facc15', 'Unknown': '#94a3b8',
+  'Network': '#4ade80', 'Warning': '#facc15', 'Clean': '#10b981',
   'Error': '#ef4444', 'Worker Initialization': '#34d399',
 };
 
@@ -194,6 +194,319 @@ function PieLegend({ data }) {
   );
 }
 
+// ── Panel components (shared by tabs UI and PDF print report) ──────────────
+function IncidentsPanel({ incidents }) {
+  return (
+    <>
+      <div className="flex items-center gap-3 flex-wrap">
+        <Radar className="w-6 h-6 text-fuchsia-400" />
+        <h2 className="text-xl font-bold text-white">Incident Detection</h2>
+        <Badge variant="outline" className="border-neutral-700 text-neutral-400">{incidents?.processingTimeMs}ms</Badge>
+        <Badge variant="secondary" className="text-emerald-400">Local engine — no LLM</Badge>
+      </div>
+
+      {incidents?.stats && (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <MetricCard label="Total Logs" value={incidents.stats.totalLogs?.toLocaleString() || '—'} colorClass="text-neutral-300" icon={FileText} />
+          <MetricCard label="Windows Analyzed" value={incidents.stats.bucketsAnalyzed || '—'} colorClass="text-blue-400" icon={Clock} />
+          <MetricCard label="Novel Patterns" value={incidents.stats.novelPatterns || 0} colorClass="text-amber-400" icon={TrendingUp} />
+          <MetricCard label="Escalation Chains" value={incidents.stats.escalationChains || 0} colorClass="text-orange-400" icon={Activity} />
+          <MetricCard label="Baseline Errors/Window" value={incidents.stats.baseline?.meanSeverePerBucket ?? '—'} colorClass="text-fuchsia-400" icon={BarChart3} />
+        </div>
+      )}
+
+      {incidents?.incidents?.length === 0 && (
+        <Card className="bg-neutral-800/50 border-neutral-700">
+          <CardContent className="p-6 flex items-center gap-4">
+            <CheckCircle className="w-8 h-8 text-emerald-400 flex-shrink-0" />
+            <div>
+              <h3 className="font-bold text-white">No incidents detected</h3>
+              <p className="text-sm text-neutral-400">Log activity stayed within baseline — no error bursts, novel error patterns, or escalation chains found.</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {incidents?.incidents?.map((inc, i) => (
+        <Card key={i} className={`border ${inc.severity === 'critical' ? 'border-red-800 bg-red-950/20' : inc.severity === 'high' ? 'border-orange-800 bg-orange-950/10' : 'border-neutral-700 bg-neutral-800/50'}`}>
+          <CardContent className="p-5 space-y-4">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant={inc.severity === 'critical' ? 'destructive' : inc.severity === 'high' ? 'warning' : 'secondary'} className="uppercase">
+                {inc.severity}
+              </Badge>
+              <h3 className="font-bold text-white">{inc.title}</h3>
+              <div className="flex gap-1.5 ml-auto flex-wrap">
+                {inc.signals?.map((sig, j) => (
+                  <Badge key={j} variant="outline" className="border-fuchsia-800 text-fuchsia-300 text-[10px]">
+                    {sig}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            <p className="text-sm text-neutral-400 leading-relaxed">{inc.summary}</p>
+
+            {inc.windowStart && (
+              <p className="text-xs text-neutral-500 font-mono">{inc.windowStart} → {inc.windowEnd}</p>
+            )}
+
+            {inc.zScore != null && (
+              <p className="text-xs text-fuchsia-300 font-mono">z-score: {inc.zScore}σ</p>
+            )}
+
+            {inc.topPatterns?.length > 0 && (
+              <div className="space-y-1 bg-black/40 p-3 rounded-md border border-neutral-700">
+                <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-semibold">Top patterns</p>
+                {inc.topPatterns.map((p, j) => (
+                  <p key={j} className="text-xs text-neutral-300 font-mono truncate hover:whitespace-normal flex gap-2">
+                    <span className="text-fuchsia-400 flex-shrink-0">x{p.count}</span>
+                    <span className="flex-shrink-0 text-neutral-500">{p.category}</span>
+                    <span className="truncate">{p.message}</span>
+                  </p>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ))}
+    </>
+  );
+}
+
+function TimelinePanel({ timeline, timings }) {
+  return (
+    <>
+      <div className="flex items-center gap-3">
+        <Activity className="w-6 h-6 text-blue-400" />
+        <h2 className="text-xl font-bold text-white">Incident Timeline</h2>
+        <Badge variant="outline" className="border-neutral-700 text-neutral-400">{timings.timeline}s</Badge>
+      </div>
+
+      {timeline?.overallSummary && (
+        <Card className="bg-blue-500/10 border-blue-500/20">
+          <CardContent className="p-4">
+            <p className="text-sm text-blue-100">{timeline.overallSummary}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="pl-4 border-l-2 border-neutral-700 space-y-8 mt-8">
+        {timeline?.timeline?.map((event, idx) => (
+          <div className="relative" key={idx}>
+            <div className={`absolute -left-[21px] top-1 w-3 h-3 rounded-full border-2 border-neutral-900 ${event.severity === 'critical' ? 'bg-red-500' :
+              event.severity === 'error' ? 'bg-orange-500' :
+                event.severity === 'warning' ? 'bg-amber-500' :
+                  'bg-blue-500'
+              }`} />
+
+            <div className="flex items-center gap-2 mb-1">
+              <Badge variant={event.severity === 'critical' ? 'destructive' : event.severity === 'error' ? 'warning' : 'secondary'} className="text-[10px] px-1.5 py-0">
+                {event.severity?.toUpperCase()}
+              </Badge>
+              <span className="text-xs text-neutral-400 font-mono">{event.timestamp}</span>
+            </div>
+
+            <h4 className="font-bold text-white mb-1">{event.eventTitle}</h4>
+            <p className="text-sm text-neutral-400 mb-3">{event.summary}</p>
+
+            {event.escalationPath?.length > 0 && (
+              <div className="mb-3 bg-neutral-800/60 border border-neutral-700 rounded-lg p-3">
+                <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-semibold mb-2">Escalation Path</p>
+                <div className="space-y-0">
+                  {event.escalationPath.map((step, stepIdx) => {
+                    const dotColor =
+                      step.level === 'error' || step.level === 'crit' || step.level === 'critical' ? 'bg-red-500' :
+                        step.level === 'warn' || step.level === 'warning' ? 'bg-amber-500' :
+                          'bg-blue-500';
+                    const lineColor =
+                      step.level === 'error' || step.level === 'crit' || step.level === 'critical' ? 'bg-red-500/30' :
+                        step.level === 'warn' || step.level === 'warning' ? 'bg-amber-500/30' :
+                          'bg-blue-500/30';
+                    const textColor =
+                      step.level === 'error' || step.level === 'crit' || step.level === 'critical' ? 'text-red-400' :
+                        step.level === 'warn' || step.level === 'warning' ? 'text-amber-400' :
+                          'text-blue-400';
+                    const isLast = stepIdx === event.escalationPath.length - 1;
+
+                    return (
+                      <div key={stepIdx} className="flex items-stretch gap-3">
+                        <div className="flex flex-col items-center w-4 flex-shrink-0">
+                          <div className={`w-2.5 h-2.5 rounded-full ${dotColor} mt-1.5 flex-shrink-0 ring-2 ring-neutral-900`} />
+                          {!isLast && <div className={`w-0.5 flex-1 min-h-[16px] ${lineColor}`} />}
+                        </div>
+                        <div className={`pb-2 ${isLast ? '' : 'pb-3'}`}>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[10px] font-bold uppercase ${textColor}`}>{step.level}</span>
+                            {step.timestamp && (
+                              <span className="text-[10px] text-neutral-600 font-mono">{step.timestamp}</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-neutral-400 leading-relaxed">{step.description}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {event.supportingEvidence?.length > 0 && (
+              <div className="space-y-1 bg-neutral-800/50 p-3 rounded-md border border-neutral-700">
+                {event.supportingEvidence.map((ev, j) => (
+                  <p key={j} className="text-xs text-neutral-400 font-mono truncate hover:whitespace-normal">
+                    → {ev}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function RootCausePanel({ rootCause, timings }) {
+  return (
+    <>
+      <div className="flex items-center gap-3">
+        <AlertTriangle className="w-6 h-6 text-red-500" />
+        <h2 className="text-xl font-bold text-white">Root Cause & Recovery</h2>
+        <Badge variant="outline" className="border-neutral-700 text-neutral-400">{timings.rootcause}s</Badge>
+      </div>
+
+      <Card className="bg-red-500/10 border-red-500/20">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-red-400 text-lg">Identified Root Cause</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-red-100/90 leading-relaxed text-sm">
+            {rootCause?.analysis?.rootCause}
+          </p>
+        </CardContent>
+      </Card>
+
+      <div className="grid md:grid-cols-2 gap-6">
+        <div className="space-y-4">
+          <h3 className="font-semibold text-white">Causal Chain</h3>
+          <div className="space-y-3">
+            {rootCause?.analysis?.causalChain?.map((step, i) => (
+              <div key={i} className="flex gap-3 items-start">
+                <div className="flex-shrink-0 w-6 h-6 rounded bg-neutral-800 text-neutral-400 flex items-center justify-center text-xs font-bold">
+                  {i + 1}
+                </div>
+                <p className="text-sm text-neutral-300 pt-0.5">{step}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h3 className="font-semibold text-white">System Impact</h3>
+          <p className="text-sm text-neutral-400 leading-relaxed bg-neutral-800/50 p-4 rounded-lg border border-neutral-700">
+            {rootCause?.analysis?.impact}
+          </p>
+        </div>
+      </div>
+
+      <div className="pt-4">
+        <h3 className="font-semibold text-emerald-400 mb-4 flex items-center gap-2">
+          <Shield className="w-4 h-4" /> Recovery Recommendations
+        </h3>
+<div className="space-y-3">
+                      {rootCause?.analysis?.recommendations?.map((rec, i) => (
+                        <Card key={i} className="bg-neutral-800/50 border-neutral-700">
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                              <Badge variant={rec.priority === 'high' ? 'destructive' : rec.priority === 'medium' ? 'warning' : 'secondary'} className="h-fit">
+                                {rec.priority?.toUpperCase()}
+                              </Badge>
+                              <h4 className="font-bold text-white text-sm">{rec.action}</h4>
+                            </div>
+                            <p className="text-sm text-neutral-400 mb-3 leading-relaxed">{rec.rationale}</p>
+
+                            {rec.files?.length > 0 && (
+                              <div className="mb-3">
+                                <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-semibold mb-1.5">Targeted files ({rec.files.length})</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {rec.files.map((f, j) => (
+                                    <code key={j} className="px-2 py-1 text-xs bg-black/50 border border-neutral-700 rounded font-mono text-orange-300 break-all">
+                                      {f.path} <span className="text-neutral-500">×{f.count}</span>
+                                    </code>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {rec.routes?.length > 0 && (
+                              <div className="mb-3">
+                                <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-semibold mb-1.5">Targeted routes ({rec.routes.length})</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {rec.routes.map((r, j) => (
+                                    <code key={j} className="px-2 py-1 text-xs bg-black/50 border border-neutral-700 rounded font-mono text-sky-300 break-all">
+                                      {r.path} <span className="text-neutral-500">×{r.count}</span>
+                                    </code>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {rec.sources?.length > 0 && (
+                              <div className="mb-3">
+                                <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-semibold mb-1.5">Source IPs ({rec.sources.length})</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {rec.sources.map((s, j) => (
+                                    <code key={j} className="px-2 py-1 text-xs bg-black/50 border border-neutral-700 rounded font-mono text-rose-300 break-all">
+                                      {s.ip} <span className="text-neutral-500">×{s.count}</span>
+                                    </code>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {rec.steps?.length > 0 && (
+                              <ol className="space-y-1.5">
+                                {rec.steps.map((step, j) => (
+                                  <li key={j} className="flex gap-2 text-sm text-neutral-300">
+                                    <span className="w-5 h-5 rounded bg-orange-500/10 text-orange-400 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">{j + 1}</span>
+                                    <span className="leading-relaxed">{step}</span>
+                                  </li>
+                                ))}
+                              </ol>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-6">
+        <Card className="bg-neutral-800/50 border-neutral-700">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-neutral-300">Confidence Score</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-4">
+              <span className="text-3xl font-bold text-orange-400 font-mono">{rootCause?.analysis?.confidence || 0}%</span>
+              <div className="flex-1 h-2 bg-neutral-700 rounded-full overflow-hidden">
+                <div className="h-full rounded-full bg-orange-500" style={{ width: `${rootCause?.analysis?.confidence || 0}%` }} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-neutral-800/50 border-neutral-700">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-neutral-300">Analysis Notes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-neutral-400 leading-relaxed">{rootCause?.analysis?.analysisNotes || '—'}</p>
+          </CardContent>
+        </Card>
+      </div>
+    </>
+  );
+}
+
 // ── Main Upload View ───────────────────────────────────────────────────────
 export default function UploadView() {
   const [health, setHealth] = useState(null);
@@ -206,15 +519,10 @@ export default function UploadView() {
   const [error, setError] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [timings, setTimings] = useState({});
-  const [isPrinting, setIsPrinting] = useState(false);
   const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
 
   const handleExportPDF = () => {
-    setIsPrinting(true);
-    setTimeout(() => {
-      window.print();
-      setIsPrinting(false);
-    }, 100);
+    window.print();
   };
 
   const setStep = (key, status) => {
@@ -456,7 +764,7 @@ export default function UploadView() {
           </div>
 
           {/* Main Tabs Area */}
-          <Card className="bg-neutral-900 border-neutral-700 shadow-2xl overflow-hidden print:border-none print:shadow-none">
+          <Card className="bg-neutral-900 border-neutral-700 shadow-2xl overflow-hidden print:border-none print:shadow-none print:hidden">
             <Tabs defaultValue="classify" className="w-full">
               <div className="border-b border-neutral-700 p-4 md:px-6 bg-neutral-800/50 print:hidden">
                 <TabsList className="bg-neutral-900/50 flex-wrap h-auto justify-start gap-1">
@@ -480,7 +788,7 @@ export default function UploadView() {
 
               <div className="p-6 print:space-y-16 print:p-0">
                 {/* ── Classification Panel ───────────────────────── */}
-                <TabsContent value="classify" forceMount={isPrinting ? true : undefined} className={`space-y-6 mt-0 ${isPrinting ? 'print:block' : ''}`}>
+                <TabsContent value="classify" className="space-y-6 mt-0">
                   <div className="flex items-center gap-3 flex-wrap">
                     <CheckCircle className="w-6 h-6 text-emerald-400" />
                     <h2 className="text-xl font-bold text-white">Log Classification</h2>
@@ -518,8 +826,9 @@ export default function UploadView() {
                             </tr>
                           </thead>
                           <tbody>
-                            {classification.categoryDistribution.map((cat, i) => (
-                              <tr key={i} className="border-t border-neutral-700/50 hover:bg-neutral-800/30 transition-colors">
+                            {classification.categoryDistribution
+                              .map((cat, i) => (
+                                <tr key={i} className="border-t border-neutral-700/50 hover:bg-neutral-800/30 transition-colors">
                                 <td className="px-4 py-3">
                                   <div className="flex items-center gap-2">
                                     <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: getCategoryColor(cat.category) }} />
@@ -600,260 +909,22 @@ export default function UploadView() {
                 </TabsContent>
 
                 {/* ── Incidents Panel ───────────────────────────── */}
-                <TabsContent value="detection" forceMount={isPrinting ? true : undefined} className={`space-y-6 mt-0 ${isPrinting ? 'print:block' : ''}`}>
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <Radar className="w-6 h-6 text-fuchsia-400" />
-                    <h2 className="text-xl font-bold text-white">Incident Detection</h2>
-                    <Badge variant="outline" className="border-neutral-700 text-neutral-400">{incidents?.processingTimeMs}ms</Badge>
-                    <Badge variant="secondary" className="text-emerald-400">Local engine — no LLM</Badge>
-                  </div>
-
-                  {incidents?.stats && (
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                      <MetricCard label="Total Logs" value={incidents.stats.totalLogs?.toLocaleString() || '—'} colorClass="text-neutral-300" icon={FileText} />
-                      <MetricCard label="Windows Analyzed" value={incidents.stats.bucketsAnalyzed || '—'} colorClass="text-blue-400" icon={Clock} />
-                      <MetricCard label="Novel Patterns" value={incidents.stats.novelPatterns || 0} colorClass="text-amber-400" icon={TrendingUp} />
-                      <MetricCard label="Escalation Chains" value={incidents.stats.escalationChains || 0} colorClass="text-orange-400" icon={Activity} />
-                      <MetricCard label="Baseline Errors/Window" value={incidents.stats.baseline?.meanSeverePerBucket ?? '—'} colorClass="text-fuchsia-400" icon={BarChart3} />
-                    </div>
-                  )}
-
-                  {incidents?.incidents?.length === 0 && (
-                    <Card className="bg-neutral-800/50 border-neutral-700">
-                      <CardContent className="p-6 flex items-center gap-4">
-                        <CheckCircle className="w-8 h-8 text-emerald-400 flex-shrink-0" />
-                        <div>
-                          <h3 className="font-bold text-white">No incidents detected</h3>
-                          <p className="text-sm text-neutral-400">Log activity stayed within baseline — no error bursts, novel error patterns, or escalation chains found.</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-
-                  {incidents?.incidents?.map((inc, i) => (
-                    <Card key={i} className={`border ${inc.severity === 'critical' ? 'border-red-800 bg-red-950/20' : inc.severity === 'high' ? 'border-orange-800 bg-orange-950/10' : 'border-neutral-700 bg-neutral-800/50'}`}>
-                      <CardContent className="p-5 space-y-4">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Badge variant={inc.severity === 'critical' ? 'destructive' : inc.severity === 'high' ? 'warning' : 'secondary'} className="uppercase">
-                            {inc.severity}
-                          </Badge>
-                          <h3 className="font-bold text-white">{inc.title}</h3>
-                          <div className="flex gap-1.5 ml-auto flex-wrap">
-                            {inc.signals?.map((sig, j) => (
-                              <Badge key={j} variant="outline" className="border-fuchsia-800 text-fuchsia-300 text-[10px]">
-                                {sig}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-
-                        <p className="text-sm text-neutral-400 leading-relaxed">{inc.summary}</p>
-
-                        {inc.windowStart && (
-                          <p className="text-xs text-neutral-500 font-mono">{inc.windowStart} → {inc.windowEnd}</p>
-                        )}
-
-                        {inc.zScore != null && (
-                          <p className="text-xs text-fuchsia-300 font-mono">z-score: {inc.zScore}σ</p>
-                        )}
-
-                        {inc.topPatterns?.length > 0 && (
-                          <div className="space-y-1 bg-black/40 p-3 rounded-md border border-neutral-700">
-                            <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-semibold">Top patterns</p>
-                            {inc.topPatterns.map((p, j) => (
-                              <p key={j} className="text-xs text-neutral-300 font-mono truncate hover:whitespace-normal flex gap-2">
-                                <span className="text-fuchsia-400 flex-shrink-0">x{p.count}</span>
-                                <span className="flex-shrink-0 text-neutral-500">{p.category}</span>
-                                <span className="truncate">{p.message}</span>
-                              </p>
-                            ))}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
+                <TabsContent value="detection" className="space-y-6 mt-0">
+                  <IncidentsPanel incidents={incidents} />
                 </TabsContent>
 
                 {/* ── Timeline Panel ─────────────────────────────── */}
-                <TabsContent value="timeline" forceMount={isPrinting ? true : undefined} className={`space-y-6 mt-0 ${isPrinting ? 'print:block' : ''}`}>
-                  <div className="flex items-center gap-3">
-                    <Activity className="w-6 h-6 text-blue-400" />
-                    <h2 className="text-xl font-bold text-white">Incident Timeline</h2>
-                    <Badge variant="outline" className="border-neutral-700 text-neutral-400">{timings.timeline}s</Badge>
-                  </div>
-
-                  {timeline?.overallSummary && (
-                    <Card className="bg-blue-500/10 border-blue-500/20">
-                      <CardContent className="p-4">
-                        <p className="text-sm text-blue-100">{timeline.overallSummary}</p>
-                      </CardContent>
-                    </Card>
-                  )}
-
-                  <div className="pl-4 border-l-2 border-neutral-700 space-y-8 mt-8">
-                    {timeline?.timeline?.map((event, idx) => (
-                      <div className="relative" key={idx}>
-                        <div className={`absolute -left-[21px] top-1 w-3 h-3 rounded-full border-2 border-neutral-900 ${event.severity === 'critical' ? 'bg-red-500' :
-                          event.severity === 'error' ? 'bg-orange-500' :
-                            event.severity === 'warning' ? 'bg-amber-500' :
-                              'bg-blue-500'
-                          }`} />
-
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge variant={event.severity === 'critical' ? 'destructive' : event.severity === 'error' ? 'warning' : 'secondary'} className="text-[10px] px-1.5 py-0">
-                            {event.severity?.toUpperCase()}
-                          </Badge>
-                          <span className="text-xs text-neutral-400 font-mono">{event.timestamp}</span>
-                        </div>
-
-                        <h4 className="font-bold text-white mb-1">{event.eventTitle}</h4>
-                        <p className="text-sm text-neutral-400 mb-3">{event.summary}</p>
-
-                        {event.escalationPath?.length > 0 && (
-                          <div className="mb-3 bg-neutral-800/60 border border-neutral-700 rounded-lg p-3">
-                            <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-semibold mb-2">Escalation Path</p>
-                            <div className="space-y-0">
-                              {event.escalationPath.map((step, stepIdx) => {
-                                const dotColor =
-                                  step.level === 'error' || step.level === 'crit' || step.level === 'critical' ? 'bg-red-500' :
-                                    step.level === 'warn' || step.level === 'warning' ? 'bg-amber-500' :
-                                      'bg-blue-500';
-                                const lineColor =
-                                  step.level === 'error' || step.level === 'crit' || step.level === 'critical' ? 'bg-red-500/30' :
-                                    step.level === 'warn' || step.level === 'warning' ? 'bg-amber-500/30' :
-                                      'bg-blue-500/30';
-                                const textColor =
-                                  step.level === 'error' || step.level === 'crit' || step.level === 'critical' ? 'text-red-400' :
-                                    step.level === 'warn' || step.level === 'warning' ? 'text-amber-400' :
-                                      'text-blue-400';
-                                const isLast = stepIdx === event.escalationPath.length - 1;
-
-                                return (
-                                  <div key={stepIdx} className="flex items-stretch gap-3">
-                                    <div className="flex flex-col items-center w-4 flex-shrink-0">
-                                      <div className={`w-2.5 h-2.5 rounded-full ${dotColor} mt-1.5 flex-shrink-0 ring-2 ring-neutral-900`} />
-                                      {!isLast && <div className={`w-0.5 flex-1 min-h-[16px] ${lineColor}`} />}
-                                    </div>
-                                    <div className={`pb-2 ${isLast ? '' : 'pb-3'}`}>
-                                      <div className="flex items-center gap-2">
-                                        <span className={`text-[10px] font-bold uppercase ${textColor}`}>{step.level}</span>
-                                        {step.timestamp && (
-                                          <span className="text-[10px] text-neutral-600 font-mono">{step.timestamp}</span>
-                                        )}
-                                      </div>
-                                      <p className="text-xs text-neutral-400 leading-relaxed">{step.description}</p>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-
-                        {event.supportingEvidence?.length > 0 && (
-                          <div className="space-y-1 bg-neutral-800/50 p-3 rounded-md border border-neutral-700">
-                            {event.supportingEvidence.map((ev, j) => (
-                              <p key={j} className="text-xs text-neutral-400 font-mono truncate hover:whitespace-normal">
-                                → {ev}
-                              </p>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                <TabsContent value="timeline" className="space-y-6 mt-0">
+                  <TimelinePanel timeline={timeline} timings={timings} />
                 </TabsContent>
 
                 {/* ── Root Cause Panel ───────────────────────────── */}
-                <TabsContent value="rootcause" forceMount={isPrinting ? true : undefined} className={`space-y-6 mt-0 ${isPrinting ? 'print:block' : ''}`}>
-                  <div className="flex items-center gap-3">
-                    <AlertTriangle className="w-6 h-6 text-red-500" />
-                    <h2 className="text-xl font-bold text-white">Root Cause & Recovery</h2>
-                    <Badge variant="outline" className="border-neutral-700 text-neutral-400">{timings.rootcause}s</Badge>
-                  </div>
-
-                  <Card className="bg-red-500/10 border-red-500/20">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-red-400 text-lg">Identified Root Cause</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-red-100/90 leading-relaxed text-sm">
-                        {rootCause?.analysis?.rootCause}
-                      </p>
-                    </CardContent>
-                  </Card>
-
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <h3 className="font-semibold text-white">Causal Chain</h3>
-                      <div className="space-y-3">
-                        {rootCause?.analysis?.causalChain?.map((step, i) => (
-                          <div key={i} className="flex gap-3 items-start">
-                            <div className="flex-shrink-0 w-6 h-6 rounded bg-neutral-800 text-neutral-400 flex items-center justify-center text-xs font-bold">
-                              {i + 1}
-                            </div>
-                            <p className="text-sm text-neutral-300 pt-0.5">{step}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      <h3 className="font-semibold text-white">System Impact</h3>
-                      <p className="text-sm text-neutral-400 leading-relaxed bg-neutral-800/50 p-4 rounded-lg border border-neutral-700">
-                        {rootCause?.analysis?.impact}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="pt-4">
-                    <h3 className="font-semibold text-emerald-400 mb-4 flex items-center gap-2">
-                      <Shield className="w-4 h-4" /> Recovery Recommendations
-                    </h3>
-                    <div className="space-y-3">
-                      {rootCause?.analysis?.recommendations?.map((rec, i) => (
-                        <Card key={i} className="bg-neutral-800/50 border-neutral-700">
-                          <CardContent className="p-4 flex gap-4">
-                            <Badge variant={rec.priority === 'high' ? 'destructive' : rec.priority === 'medium' ? 'warning' : 'secondary'} className="h-fit">
-                              {rec.priority?.toUpperCase()}
-                            </Badge>
-                            <div>
-                              <h4 className="font-bold text-white text-sm mb-1">{rec.action}</h4>
-                              <p className="text-sm text-neutral-400">{rec.rationale}</p>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <Card className="bg-neutral-800/50 border-neutral-700">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm text-neutral-300">Confidence Score</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex items-center gap-4">
-                          <span className="text-3xl font-bold text-orange-400 font-mono">{rootCause?.analysis?.confidence || 0}%</span>
-                          <div className="flex-1 h-2 bg-neutral-700 rounded-full overflow-hidden">
-                            <div className="h-full rounded-full bg-orange-500" style={{ width: `${rootCause?.analysis?.confidence || 0}%` }} />
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    <Card className="bg-neutral-800/50 border-neutral-700">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm text-neutral-300">Analysis Notes</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-xs text-neutral-400 leading-relaxed">{rootCause?.analysis?.analysisNotes || '—'}</p>
-                      </CardContent>
-                    </Card>
-                  </div>
+                <TabsContent value="rootcause" className="space-y-6 mt-0">
+                  <RootCausePanel rootCause={rootCause} timings={timings} />
                 </TabsContent>
 
                 {/* ── Metrics Panel ──────────────────────────────── */}
-                <TabsContent value="metrics" forceMount={isPrinting ? true : undefined} className={`space-y-6 mt-0 ${isPrinting ? 'print:block' : ''}`}>
+                <TabsContent value="metrics" className="space-y-6 mt-0">
                   <div className="flex items-center gap-3">
                     <BarChart3 className="w-6 h-6 text-orange-400" />
                     <h2 className="text-xl font-bold text-white">Performance Metrics</h2>
@@ -944,6 +1015,75 @@ export default function UploadView() {
               </div>
             </Tabs>
           </Card>
+
+          {/* Print-only report (always in DOM, shown only on print) — 4 pages */}
+          <div className="hidden print:block" aria-hidden="true">
+            <h1 className="text-xl font-bold mb-1">Log Analysis Report</h1>
+            <p className="text-xs text-neutral-400 mb-4">
+              {new Date().toISOString().replace('T', ' ').slice(0, 19)} · Engine: local
+            </p>
+
+            {/* Page 1 — Classification */}
+            <div className="print:page-break-after">
+              <h2 className="text-lg font-semibold mb-3">1. Classification</h2>
+              {classification && (
+                <>
+                  <p className="text-sm mb-3">
+                    {classification.totalLogsRepresented?.toLocaleString()} logs across {classification.totalClassified} patterns
+                  </p>
+                  {classification.categoryDistribution?.length > 0 && (
+                    <>
+                      <h3 className="font-semibold mb-2">Category Distribution</h3>
+                      <div className="flex flex-row items-start gap-6 mb-4">
+                        <PieChart data={classification.categoryDistribution} size={240} />
+                        <PieLegend data={classification.categoryDistribution} />
+                      </div>
+                      <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-gray-100 text-left">
+                          <th className="border border-gray-300 px-3 py-2 font-semibold">Category</th>
+                          <th className="border border-gray-300 px-3 py-2 font-semibold text-right">Logs</th>
+                          <th className="border border-gray-300 px-3 py-2 font-semibold text-right">Patterns</th>
+                          <th className="border border-gray-300 px-3 py-2 font-semibold text-right">Share</th>
+                          <th className="border border-gray-300 px-3 py-2 font-semibold">Severity</th>
+                          <th className="border border-gray-300 px-3 py-2 font-semibold">Insight</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {classification.categoryDistribution
+                          .map((cat, i) => (
+                            <tr key={i}>
+                              <td className="border border-gray-300 px-3 py-2 font-medium">{cat.category}</td>
+                              <td className="border border-gray-300 px-3 py-2 text-right">{cat.logCount?.toLocaleString()}</td>
+                              <td className="border border-gray-300 px-3 py-2 text-right">{cat.patternCount}</td>
+                              <td className="border border-gray-300 px-3 py-2 text-right">{cat.percentage}%</td>
+                              <td className="border border-gray-300 px-3 py-2">{cat.dominantSeverity?.toUpperCase() || '—'}</td>
+                              <td className="border border-gray-300 px-3 py-2 text-xs">{cat.insight || '—'}</td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Page 2 — Incidents */}
+            <div className="print:page-break-after">
+              <IncidentsPanel incidents={incidents} />
+            </div>
+
+            {/* Page 3 — Timeline */}
+            <div className="print:page-break-after">
+              <TimelinePanel timeline={timeline} timings={timings} />
+            </div>
+
+            {/* Page 4 — Root Cause */}
+            <div>
+              <RootCausePanel rootCause={rootCause} timings={timings} />
+            </div>
+          </div>
 
           <div className="flex justify-center pt-8 print:hidden">
             <Button variant="outline" className="border-neutral-700 text-neutral-300 hover:bg-neutral-800 hover:text-white" onClick={() => { setStepStatus({}); setCurrentStep('upload'); setClassification(null); setTimeline(null); setRootCause(null); setIncidents(null); }}>

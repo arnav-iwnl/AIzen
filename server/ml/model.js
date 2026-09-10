@@ -4,7 +4,7 @@
  */
 const fs = require('fs');
 const path = require('path');
-const { vectorize, predictHead, buildIndex } = require('./vectorizer');
+const { vectorize, predictHead, predictFromVector, buildIndex } = require('./vectorizer');
 const logger = require('../utils/logger');
 
 const MODEL_PATH = path.join(__dirname, 'model.json');
@@ -45,8 +45,11 @@ function classifyMessage(text) {
   load();
   if (!model || !text) return null;
 
-  const cat = predictHead(text, model.category, model.vectorizer, index);
-  const sev = predictHead(text, model.severity, model.vectorizer, index);
+  // One TF-IDF vectorize shared between category + severity heads
+  const vec = vectorize(text, model.vectorizer, index);
+
+  const cat = predictFromVector(vec, model.category);
+  const sev = predictFromVector(vec, model.severity);
 
   return {
     category: cat.label,

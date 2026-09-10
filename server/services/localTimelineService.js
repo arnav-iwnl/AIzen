@@ -1,6 +1,7 @@
 const logStore = require('../store/logStore');
 const contextSelector = require('./contextSelector');
 const rules = require('../rules/logRules');
+const v2Detections = require('../ml/v2Detections');
 const { formatTimelineTimestamp } = require('../utils/helpers');
 const logger = require('../utils/logger');
 
@@ -49,17 +50,19 @@ class LocalTimelineService {
 
     for (const pattern of top) {
       const cls = rules.classify({ message: pattern.message, level: pattern.level, raw: pattern.raw });
+      const v2 = v2Detections.get(pattern.fingerprint);
+      const category = v2 ? 'Security' : cls.category;
       const chain = chainsByFp.get(pattern.fingerprint);
 
       events.push({
         timestamp: formatTimelineTimestamp(pattern.firstSeen || pattern.timestamp),
-        eventTitle: this._eventTitle(cls.category, pattern.message),
-        severity: this._severityForLevel(pattern.level, cls.category),
-        summary: this._summary(pattern, cls),
+        eventTitle: this._eventTitle(category, pattern.message),
+        severity: this._severityForLevel(pattern.level, category),
+        summary: this._summary(pattern, cls, v2),
         escalationPath: this._escalationPath(chain, pattern),
         supportingEvidence: [`${pattern.message} (×${pattern.occurrenceCount})`],
-        affectedComponents: this._components(cls.category, pattern),
-        category: cls.category,
+        affectedComponents: this._components(category, pattern),
+        category,
         _fingerprint: pattern.fingerprint,
       });
       seenFps.add(pattern.fingerprint);
@@ -119,11 +122,14 @@ class LocalTimelineService {
     return `${CATEGORY_TITLES[category] || 'Log event'}: ${short}`;
   }
 
-  _summary(pattern, cls) {
+  _summary(pattern, cls, v2) {
     const range =
       pattern.firstSeen && pattern.lastSeen
         ? `${formatTimelineTimestamp(pattern.firstSeen)} → ${formatTimelineTimestamp(pattern.lastSeen)}`
         : '';
+    if (v2) {
+      return `Deep classifier detected ${v2.attack_type} attack (${(v2.confidence * 100).toFixed(1)}% confidence). Pattern occurred ${pattern.occurrenceCount} time${pattern.occurrenceCount > 1 ? 's' : ''}${range ? ` (${range})` : ''}.`;
+    }
     return `${cls.category} pattern occurred ${pattern.occurrenceCount} time${pattern.occurrenceCount > 1 ? 's' : ''}${range ? ` (${range})` : ''}. ${cls.insight || ''}`.trim();
   }
 

@@ -96,7 +96,7 @@ class ResponseParser {
 
     return results.map((item) => ({
       id: item.id || item.logId || 'unknown',
-      category: item.category || item.classification || 'Unknown',
+      category: item.category || item.classification || 'Clean',
       confidence: typeof item.confidence === 'number' ? item.confidence : parseInt(item.confidence) || 0,
       severity: item.severity || 'medium',
       explanation: item.explanation || item.reason || item.description || 'No explanation provided',
@@ -117,7 +117,7 @@ class ResponseParser {
 
     return {
       timeline: events.map((event) => ({
-        timestamp: event.timestamp || event.time || 'Unknown',
+        timestamp: event.timestamp || event.time || 'Clean',
         eventTitle: event.eventTitle || event.title || event.event || 'Unnamed Event',
         severity: event.severity || event.level || 'info',
         summary: event.summary || event.description || 'No summary',

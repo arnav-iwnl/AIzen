@@ -43,14 +43,14 @@ function vectorize(text, vec, index) {
 }
 
 /**
- * Predict softmax probabilities for one text against a model head.
- * @param {string} text
+ * Predict softmax probabilities from a precomputed vector against a head.
+ * Used to run multiple heads (category + severity) on ONE vectorization.
+ * @param {Object} vector - { scores, norm } from vectorize()
  * @param {Object} head - { classes, coef, intercept }
- * @param {Object} vec
  * @returns {Object} { label, confidence, probabilities }
  */
-function predictHead(text, head, vec, index) {
-  const { scores, norm } = vectorize(text, vec, index);
+function predictFromVector(vector, head) {
+  const { scores, norm } = vector;
 
   const logits = head.classes.map((_, c) => {
     let s = head.intercept[c];
@@ -76,4 +76,15 @@ function predictHead(text, head, vec, index) {
   };
 }
 
-module.exports = { vectorize, predictHead, buildIndex };
+/**
+ * Predict softmax probabilities for one text against a model head.
+ * @param {string} text
+ * @param {Object} head - { classes, coef, intercept }
+ * @param {Object} vec
+ * @returns {Object} { label, confidence, probabilities }
+ */
+function predictHead(text, head, vec, index) {
+  return predictFromVector(vectorize(text, vec, index), head);
+}
+
+module.exports = { vectorize, predictHead, predictFromVector, buildIndex };

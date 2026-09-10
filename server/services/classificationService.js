@@ -149,7 +149,7 @@ class ClassificationService {
           firstSeen: pattern.firstSeen || null,
           lastSeen: pattern.lastSeen || null,
           classification: {
-            category: result ? result.category : 'Unknown',
+            category: result ? result.category : 'Clean',
             confidence: result ? result.confidence : 0,
             severity: result ? result.severity : 'medium',
             explanation: result ? result.explanation : 'Classification unavailable',
@@ -189,7 +189,7 @@ class ClassificationService {
     return {
       categoryCounts,
       averageConfidence: results.length > 0 ? Math.round(totalConfidence / results.length) : 0,
-      dominantCategory: Object.entries(categoryCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Unknown',
+      dominantCategory: Object.entries(categoryCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Clean',
     };
   }
 

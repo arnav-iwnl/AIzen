@@ -96,6 +96,17 @@ class Preprocessor {
 
     if (batch.length > 0) {
       logStore.ingestBatch(batch);
+      batch = [];
+    }
+
+    // Block-based parsers (e.g. OSSEC) buffer until the next header; flush the
+    // final block that a stream ended on.
+    if (typeof parser.flushPending === 'function') {
+      const tail = parser.flushPending();
+      if (tail) {
+        parsedCount++;
+        await logStore.ingestBatch([tail]);
+      }
     }
 
     // Step 3: Finalize ingestion (sort, build indexes)

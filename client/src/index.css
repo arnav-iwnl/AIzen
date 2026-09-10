@@ -57,6 +57,41 @@
 /* Print optimizations for PDF Export */
 @media print {
   @page { margin: 1cm; }
+  /* App shell is h-screen + overflow-auto, which clips pagination to one page.
+     Let content flow for printing. */
+  html, body, #root {
+    height: auto !important;
+    min-height: 0 !important;
+  }
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  [class*="h-screen"], [class*="h-full"] {
+    height: auto !important;
+    min-height: 0 !important;
+  }
+  [class*="overflow-auto"], [class*="overflow-y-auto"], [class*="overflow-x-auto"], [class*="flex-1"] {
+    overflow: visible !important;
+    max-height: none !important;
+    flex: none !important;
+  }
+  [class*="animate-in"] {
+    transform: none !important;
+    animation: none !important;
+  }
+  /* Keep every box inside the page width and wrap long unbreakable tokens
+     (URLs, mono patterns, long insights) instead of overflowing the right edge. */
+  * {
+    max-width: 100% !important;
+  }
+  p, li, td, th, code, pre, span, div, h1, h2, h3, h4, h5, h6 {
+    overflow-wrap: anywhere !important;
+  }
+  .truncate {
+    white-space: normal !important;
+    overflow: visible !important;
+  }
   body {
     background-color: white !important;
     color: black !important;
@@ -87,6 +122,19 @@
   }
   .print\:p-0 {
     padding: 0 !important;
+  }
+  /* Page break utilities */
+  .print\:page-break-before {
+    page-break-before: always !important;
+    break-before: page !important;
+  }
+  .print\:page-break-after {
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+  .print\:page-break-inside-avoid {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
   /* Ensure SVG prints with correct strokes */
   svg text {

@@ -4,6 +4,7 @@ const NginxLogParser = require('./nginxParser');
 const SyslogParser = require('./syslogParser');
 const JsonLogParser = require('./jsonLogParser');
 const KeyValueGroupParser = require('./keyValueGroupParser');
+const OssecLogParser = require('./ossecLogParser');
 const GenericLogParser = require('./genericParser');
 const logger = require('../utils/logger');
 
@@ -16,12 +17,13 @@ class ParserFactory {
   constructor() {
     // Register all available parsers (specific → generic, generic last)
     this.parsers = [
+      new NginxLogParser(),
       new ApacheLogParser(),
       new ApacheAccessLogParser(),
-      new NginxLogParser(),
       new SyslogParser(),
       new JsonLogParser(),
       new KeyValueGroupParser(),
+      new OssecLogParser(),
       new GenericLogParser(),
     ];
   }

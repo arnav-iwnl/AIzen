@@ -15,7 +15,7 @@ const CATEGORY_COLORS = {
   Network: '#4ade80', Performance: '#e879f9', 'Service Instability': '#fb923c',
   'Resource Not Found': '#fbbf24', 'Request Processing': '#2dd4bf', Startup: '#22d3ee',
   Shutdown: '#a78bfa', Configuration: '#60a5fa', 'Worker Initialization': '#34d399',
-  Warning: '#facc15', Unknown: '#94a3b8',
+  Warning: '#facc15', Clean: '#10b981',
 };
 
 const MAX_RENDERED = 150;
