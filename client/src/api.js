@@ -1,6 +1,40 @@
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 /**
+ * Fetch with one cold-start retry.
+ *
+ * This backend is on Render's free tier, which spins the instance down after a
+ * period of inactivity. The first request after a wake lands on Render's
+ * cold-start path and comes back 503 with no CORS headers, so the browser
+ * reports it as a CORS error and the upload just dies with "Failed to fetch" --
+ * which reads like a frontend bug but is the platform starting up.
+ *
+ * One retry after a short delay rides out the wake. Deliberately narrow: only a
+ * network failure or a 5xx, only once, and never for a request that already got
+ * a real answer (4xx). Retrying an upload is safe here because the pipeline is
+ * re-runnable from the same file.
+ */
+async function request(url, options = {}, attempt = 0) {
+  let res;
+  try {
+    res = await fetch(url, options);
+  } catch {
+    if (attempt === 0) {
+      await new Promise((r) => setTimeout(r, 4000));
+      return request(url, options, 1);
+    }
+    throw new Error(
+      'Cannot reach the backend. It may be starting up (free-tier cold start) — try again in a few seconds.'
+    );
+  }
+  if (res.status >= 500 && attempt === 0) {
+    await new Promise((r) => setTimeout(r, 4000));
+    return request(url, options, 1);
+  }
+  return res;
+}
+
+/**
  * Upload a log file to the backend.
  * Gzips client-side (CompressionStream) so Render's CDN/WAF won't block the
  * body when the file contains attack payloads (e.g. ../../../etc/passwd).
@@ -11,7 +45,7 @@ export async function uploadLogFile(file) {
   const formData = new FormData();
   formData.append('logfile', gzBlob, `${file.name}.gz`);
 
-  const res = await fetch(`${API_BASE}/logs/upload`, {
+  const res = await request(`${API_BASE}/logs/upload`, {
     method: 'POST',
     body: formData,
   });
@@ -26,7 +60,7 @@ export async function uploadLogFile(file) {
  * Check backend health status.
  */
 export async function checkHealth() {
-  const res = await fetch(`${API_BASE}/health`);
+  const res = await request(`${API_BASE}/health`);
   return res.json();
 }
 
@@ -37,7 +71,7 @@ export async function checkHealth() {
  * the 7-class output space cannot emit scanner/T1021/T1486/T1110/T1041/T1068.
  */
 export async function getV2Status() {
-  const res = await fetch(`${API_BASE}/health/extended`);
+  const res = await request(`${API_BASE}/health/extended`);
   if (!res.ok) throw new Error('Failed to load v2 status');
   return res.json();
 }
@@ -46,7 +80,7 @@ export async function getV2Status() {
  * Get log store stats (after upload or preload).
  */
 export async function getLogStats() {
-  const res = await fetch(`${API_BASE}/logs/stats`);
+  const res = await request(`${API_BASE}/logs/stats`);
   return res.json();
 }
 
@@ -62,7 +96,7 @@ export async function classifyLogs(logs, model = null) {
     body.model = model;
   }
   
-  const res = await fetch(`${API_BASE}/ai/log-classification`, {
+  const res = await request(`${API_BASE}/ai/log-classification`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -78,7 +112,7 @@ export async function classifyLogs(logs, model = null) {
  * Step 2: Generate incident timeline.
  */
 export async function generateTimeline(options = {}) {
-  const res = await fetch(`${API_BASE}/ai/incident-timeline`, {
+  const res = await request(`${API_BASE}/ai/incident-timeline`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -95,7 +129,7 @@ export async function generateTimeline(options = {}) {
  * Step 3: Root cause analysis.
  */
 export async function analyzeRootCause(symptom, model = null) {
-  const res = await fetch(`${API_BASE}/ai/root-cause-analysis`, {
+  const res = await request(`${API_BASE}/ai/root-cause-analysis`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ symptom, model }),
@@ -109,7 +143,7 @@ export async function analyzeRootCause(symptom, model = null) {
  * No LLM involved — runs on the backend store in milliseconds.
  */
 export async function detectIncidents(options = {}) {
-  const res = await fetch(`${API_BASE}/detect/incidents`, {
+  const res = await request(`${API_BASE}/detect/incidents`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(options),
@@ -137,7 +171,7 @@ export function openRealtimeStream(onEvent, onError) {
  * Recent realtime events + alerts + counters.
  */
 export async function getRealtimeSnapshot() {
-  const res = await fetch(`${API_BASE}/realtime/snapshot`);
+  const res = await request(`${API_BASE}/realtime/snapshot`);
   return res.json();
 }
 
@@ -145,7 +179,7 @@ export async function getRealtimeSnapshot() {
  * Clear the realtime feed.
  */
 export async function clearRealtime() {
-  const res = await fetch(`${API_BASE}/realtime/clear`, { method: 'POST' });
+  const res = await request(`${API_BASE}/realtime/clear`, { method: 'POST' });
   return res.json();
 }
 
@@ -153,7 +187,7 @@ export async function clearRealtime() {
  * List available demo actions.
  */
 export async function getDemoActions() {
-  const res = await fetch(`${API_BASE}/demo/actions`);
+  const res = await request(`${API_BASE}/demo/actions`);
   return res.json();
 }
 
@@ -161,7 +195,7 @@ export async function getDemoActions() {
  * Fire `count` lines of a demo action into the realtime feed.
  */
 export async function triggerDemo(action, count = 1) {
-  const res = await fetch(`${API_BASE}/demo/trigger`, {
+  const res = await request(`${API_BASE}/demo/trigger`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action, count }),
@@ -174,7 +208,7 @@ export async function triggerDemo(action, count = 1) {
  * Start/stop the auto-stream. Body: { running, action?, rate? }
  */
 export async function controlDemoStream(body) {
-  const res = await fetch(`${API_BASE}/demo/stream`, {
+  const res = await request(`${API_BASE}/demo/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -189,7 +223,7 @@ export async function controlDemoStream(body) {
  * List available dataset-demo sources (data/ logs + v2 training datasets).
  */
 export async function getDatasetDemoSources() {
-  const res = await fetch(`${API_BASE}/demo-dataset/sources`);
+  const res = await request(`${API_BASE}/demo-dataset/sources`);
   if (!res.ok) throw new Error('Failed to load dataset sources');
   return res.json();
 }
@@ -198,7 +232,7 @@ export async function getDatasetDemoSources() {
  * Fire `count` sniffed lines from the chosen source into the realtime hub.
  */
 export async function triggerDatasetDemo(count = 50, source) {
-  const res = await fetch(`${API_BASE}/demo-dataset/trigger`, {
+  const res = await request(`${API_BASE}/demo-dataset/trigger`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ count, source }),
@@ -211,7 +245,7 @@ export async function triggerDatasetDemo(count = 50, source) {
  * Start/stop the dataset auto-stream. Body: { running, source?, rate? }
  */
 export async function controlDatasetDemoStream(body) {
-  const res = await fetch(`${API_BASE}/demo-dataset/stream`, {
+  const res = await request(`${API_BASE}/demo-dataset/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
