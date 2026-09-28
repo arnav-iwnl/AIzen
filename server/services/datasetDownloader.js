@@ -51,9 +51,19 @@ const BUCKET_BASE = process.env.DATASET_BUCKET_URL ? process.env.DATASET_BUCKET_
 // in an external .data sidecar, and tokenizer.js is required by onnx_classifier.js
 // -- omitting either yields a model that downloads "successfully" and then fails
 // to load.
+// A runtime file smaller than this is not a model, it is a Git LFS pointer.
+// v2/.gitattributes routes *.onnx through LFS but not *.onnx.data, so a clone
+// made without LFS smuggled in resolves to a ~131-byte pointer for model.onnx
+// and would pass an existence check while failing to load. Re-fetching anything
+// this small repairs that, and also covers a truncated or half-written download.
+// The smallest real artifact here is meta.json at 846 bytes, so the floor sits
+// below it and above a pointer.
+const MIN_RUNTIME_BYTES = 256;
+
 const RUNTIME_FILES = ['model.onnx', 'model.onnx.data', 'meta.json', 'tokenizer.js'].map((name) => ({
   path: path.join(RUNTIME_DIR, name),
   url: `${RUNTIME_BASE}/${RUNTIME_REMOTE_DIR}/${name}`,
+  minBytes: MIN_RUNTIME_BYTES,
 }));
 
 const DATASET_FILES = [
@@ -98,7 +108,17 @@ async function downloadFile(url, destPath) {
 }
 
 async function downloadAll(files, label) {
-  const missing = files.filter((f) => !fs.existsSync(f.path));
+  const missing = files.filter((f) => {
+    if (!fs.existsSync(f.path)) return true;
+    if (f.minBytes && fs.statSync(f.path).size < f.minBytes) {
+      console.warn(
+        `[datasetDownloader] ${path.basename(f.path)} is only ${fs.statSync(f.path).size} bytes ` +
+        '(Git LFS pointer or truncated) - re-fetching'
+      );
+      return true;
+    }
+    return false;
+  });
   if (!missing.length) {
     console.log(`[datasetDownloader] ${label}: all ${files.length} files present`);
     return;
