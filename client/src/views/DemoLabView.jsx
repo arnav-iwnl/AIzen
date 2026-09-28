@@ -5,6 +5,7 @@ import {
 import { toast } from 'sonner';
 import { Button, Card, CardContent } from '../components/ui';
 import { openRealtimeStream, getDatasetDemoSources, triggerDatasetDemo, controlDatasetDemoStream, clearRealtime } from '../api';
+import TechniqueChips from '../components/TechniqueChips';
 
 const LEVEL_COLOR = {
   error: 'text-red-400', crit: 'text-red-400', critical: 'text-red-400', emerg: 'text-red-400',
@@ -34,7 +35,10 @@ function LiveRow({ ev }) {
       <span className={`font-medium uppercase ${isSec ? 'text-rose-400' : 'text-cyan-400'}`}>
         {ev.category}
       </span>
-      <span className="text-neutral-400 truncate" title={ev.raw}>{ev.message}</span>
+      <div className="min-w-0 space-y-1">
+        <div className="truncate text-neutral-400" title={ev.raw}>{ev.message}</div>
+        <TechniqueChips ev={ev} />
+      </div>
     </div>
   );
 }

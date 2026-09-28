@@ -1,0 +1,82 @@
+{
+  "createdAt": "2026-09-28T06:05:35.848Z",
+  "summary": {
+    "benignFpRate": 0.021699907348710197,
+    "attackRecall": 0.8664090532707701
+  },
+  "sets": {
+    "ossec_alerts": {
+      "benign": {
+        "n": 19393,
+        "flagged": 425,
+        "fpRate": 0.02191512401381942,
+        "wrapperFp": 157,
+        "byType": {
+          "bruteforce": 107,
+          "credential_probe": 167,
+          "sql-injection": 92,
+          "other": 39,
+          "path-traversal": 20
+        }
+      },
+      "attack": {
+        "n": 3190,
+        "flagged": 2898,
+        "recall": 0.9084639498432602
+      }
+    },
+    "wazuh_sereniq": {
+      "benign": {
+        "n": 615,
+        "flagged": 0,
+        "fpRate": 0,
+        "wrapperFp": 0,
+        "byType": {}
+      },
+      "attack": {
+        "n": 194,
+        "flagged": 194,
+        "recall": 1
+      }
+    },
+    "wazuh_wazuh-alerts": {
+      "benign": {
+        "n": 499,
+        "flagged": 20,
+        "fpRate": 0.04008016032064128,
+        "wrapperFp": 0,
+        "byType": {
+          "bruteforce": 4,
+          "credential_probe": 16
+        }
+      },
+      "attack": {
+        "n": 239,
+        "flagged": 47,
+        "recall": 0.19665271966527198
+      }
+    }
+  },
+  "perClass": {
+    "credential_probe": {
+      "n": 2633,
+      "hit": 2437,
+      "recall": 0.9255601974933536
+    },
+    "other": {
+      "n": 475,
+      "hit": 0,
+      "recall": 0
+    },
+    "path-traversal": {
+      "n": 125,
+      "hit": 108,
+      "recall": 0.864
+    },
+    "bruteforce": {
+      "n": 189,
+      "hit": 43,
+      "recall": 0.2275132275132275
+    }
+  }
+}

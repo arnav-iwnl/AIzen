@@ -4,6 +4,7 @@ const config = require('../config/app.config');
 const logger = require('../utils/logger');
 const v2Bridge = require('../ml/v2Bridge');
 const telegram = require('../services/telegramService');
+const { techniquesFor, mitreUrl } = require('../mitre/attackMap');
 
 /**
  * RealtimeHub — in-memory real-time SIEM feed (SSE).
@@ -49,9 +50,13 @@ class RealtimeHub {
    * @param {string} raw - one log line
    * @param {string} source - e.g. demo action id, 'manual'
    * @param {Object|null} preV2 - pre-computed v2 result (skips ONNX inference)
+   * @param {string[]} [expectedTechniques] - ATT&CK ids the SOURCE says this
+   *   request exercises (e.g. the vulnerable site declaring which attack its
+   *   route models). Kept separate from `techniques`: it is ground truth for
+   *   checking the detector, never an input to it.
    * @returns {Promise<Object|null>} the published event (null if line was blank)
    */
-  async ingestLine(raw, source = 'manual', preV2 = null) {
+  async ingestLine(raw, source = 'manual', preV2 = null, expectedTechniques = null) {
     const trimmed = (raw || '').trim();
     if (!trimmed) return null;
 
@@ -117,13 +122,60 @@ class RealtimeHub {
     if (v2Bridge.isEnabled()) {
       const v2 = preV2 || await v2Bridge.classifyLine(trimmed);
       if (v2 && v2.is_attack) {
-        event.category = 'Security';
-        event.severity = 'high';
-        event.level = 'error';
-        event.securityTypes = Array.from(new Set([...event.securityTypes, v2.attack_type]));
-        event.confidence = Math.round(v2.attack_confidence * 100);
         event.v2Attack = v2.attack_type;
+        event.v2Confidence = v2.attack_confidence;
+        event.securityTypes = Array.from(new Set([...event.securityTypes, v2.attack_type]));
+
+        // v2 is a SECOND OPINION, not the primary detector: it may add its
+        // attack_type (and its technique) to a line, but it may not on its own
+        // turn a line the rules called clean into Security. With the current
+        // calibration (per-class thresholds sit at ~0.05 because the holdout is
+        // in-distribution) an unconstrained v2 flagged a plain `GET /about 200`
+        // as credential_probe, i.e. it fired on almost anything it had an
+        // opinion about. A v2-alone escalation now needs a genuinely high
+        // confidence; tune with V2_SOLO_MIN_CONFIDENCE.
+        const soloBar = config.v2.soloMinConfidence;
+        const rulesAlreadyFlagged = cls.securityTypes.length > 0;
+        if (rulesAlreadyFlagged || v2.attack_confidence >= soloBar) {
+          event.category = 'Security';
+          event.severity = 'high';
+          event.level = 'error';
+          // Never downgrade the rule engine's verdict with a weaker v2 opinion.
+          // This line was assigned confidence 92 by the rules; overwriting it
+          // with v2's 44% reported the less certain detector's number as the
+          // alert's confidence. Take the stronger of the two.
+          event.confidence = Math.max(cls.confidence || 0, Math.round(v2.attack_confidence * 100));
+        } else {
+          // Keep the verdict as a non-escalating signal so the UI can still
+          // surface it without it becoming an alert.
+          event.v2Only = true;
+        }
       }
+    }
+
+    // MITRE ATT&CK mapping. Done AFTER the v2 merge so the technique set covers
+    // both detectors: securityTypes now holds the rule families plus the deep
+    // model's attack_type, and attackMap.famKey normalizes both spellings into
+    // one family space. Attached here (the single event literal) so the ring
+    // buffer, all three SSE frame types, the snapshot and Telegram all carry it.
+    // Compact on purpose — this object is replicated per event and buffered 250x.
+    //
+    // Attribution follows the PRIMARY detector: when the rules matched security
+    // families, those decide the technique and v2 only fills in when the rules
+    // were silent. Without this, v2 calling a SQL-injection payload
+    // "bruteforce" added a bogus T1110 alongside the correct T1190.
+    const primaryTypes = cls.securityTypes.length > 0
+      ? cls.securityTypes
+      : (event.v2Attack ? [event.v2Attack] : []);
+    const techs = techniquesFor(primaryTypes);
+    if (techs.length) {
+      // mitreUrl() must be applied here: attackMap's id-indexed catalog entries
+      // carry no url of their own (the RCA path adds it when it builds its
+      // payload), so emitting the entry verbatim shipped undefined urls.
+      event.techniques = techs.map((t) => ({ id: t.id, name: t.name, tactic: t.tactic, url: mitreUrl(t.id) }));
+    }
+    if (Array.isArray(expectedTechniques) && expectedTechniques.length) {
+      event.expectedTechniques = expectedTechniques;
     }
 
     // Notify (bell + Telegram) for any Security or Error-level event, not just

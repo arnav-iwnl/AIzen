@@ -24,7 +24,16 @@ server/uploads/
 training-data/
 
 .github/workflows/
-v2
+
+# v2 is tracked as ordinary files in this repo, not a submodule. It used to be a
+# `160000` gitlink with no .gitmodules and no v2/.git, which left the model
+# untracked and unreachable from a fresh clone. Per-file rules live in v2/.gitignore.
+
+# Model artifacts fetched at boot by server/services/datasetDownloader.js.
+# These are byte-identical copies of v2/runtime/*, which IS committed; the server
+# downloads them into server/runtime/ on first start. Nothing reads them from git.
+server/runtime/
+
 # Temp
 tmp/
 temp/
@@ -32,3 +41,10 @@ vercel.md
 mocks/
 .venv/
 opencode.json
+
+# graphify knowledge-graph output (regenerate with /graphify)
+graphify-out/
+
+# Brag output: commit only the rendered video, ignore composition/build files
+brag-output/*
+!brag-output/*.mp4

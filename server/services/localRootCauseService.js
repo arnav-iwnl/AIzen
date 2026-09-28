@@ -2,6 +2,8 @@ const logStore = require('../store/logStore');
 const contextSelector = require('./contextSelector');
 const rules = require('../rules/logRules');
 const v2Detections = require('../ml/v2Detections');
+const attackMap = require('../mitre/attackMap');
+const { famKey, techniqueFor, techniquesFor, systemErrorFor, mitreUrl } = attackMap;
 const { formatTimelineTimestamp } = require('../utils/helpers');
 const logger = require('../utils/logger');
 
@@ -95,8 +97,6 @@ const PLAYBOOKS = {
   },
 };
 
-const PLAYBOOK_ALIASES = { BRUTEFORCE: 'ADMIN_BRUTE_FORCE', XSS: 'XSS_PROBE', SCANNER: 'SCANNER_SIGNATURE' };
-
 /** Family -> regex to scan raw logs for target/route/file/IP extraction. */
 const FAMILY_SCAN = {
   CREDENTIAL_PROBE: /\/wp-login|auth\.json|credentials|accessTokens|authorized_keys|\/auth(?:\/|"|'|\s)/i,
@@ -108,10 +108,16 @@ const FAMILY_SCAN = {
   DIRECTORY_FORBIDDEN: /Directory index forbidden|forbidden by rule/i,
 };
 
-const famKey = (type) => String(type).replace(/^v2:/, '').replace(/-/g, '_').toUpperCase();
-const playbookFor = (type) => {
-  const key = PLAYBOOK_ALIASES[famKey(type)] || famKey(type);
-  return PLAYBOOKS[key] || null;
+const playbookFor = (type) => PLAYBOOKS[famKey(type)] || null;
+/** Family key -> technique payload with its ATT&CK URL, or null when unmap pable. */
+const techPayload = (family) => {
+  const t = attackMap.techniqueForFamily(family);
+  return t ? { ...t, url: mitreUrl(t.id) } : null;
+};
+/** Merge target lists (e.g. [{path,count}]) without duplicating an entry. */
+const uniqBy = (acc = [], incoming = [], key = 'path') => {
+  const seen = new Set(acc.map((x) => x[key]));
+  return [...acc, ...incoming.filter((x) => x && !seen.has(x[key]))];
 };
 const cap = (arr, n) => arr.slice(0, n);
 
@@ -173,6 +179,8 @@ class LocalRootCauseService {
     const impact = this._impact(errorPatterns);
     const targets = this._extractTargets(allDeduped);
     const recommendations = this._recommendations(top, securitySignals, securityDominant, targets);
+    const techniques = this._techniques(securitySignals, targets);
+    const systemErrors = this._systemErrors(top);
     const confidence = this._confidence(errorPatterns, top);
     const analysisNotes = `Generated locally via deterministic rules + trained classifier (no LLM). ${errorPatterns.length} error/warning pattern(s) analyzed; top ${top.length} explain the observed failures.`;
 
@@ -180,7 +188,7 @@ class LocalRootCauseService {
     logger.info(`Local RCA: confidence ${confidence} in ${processingTime}ms`);
 
     return {
-      analysis: { rootCause, evidence, causalChain, impact, recommendations, confidence, analysisNotes },
+      analysis: { rootCause, evidence, causalChain, impact, recommendations, techniques, systemErrors, confidence, analysisNotes },
       metadata: {
         totalLogsInDataset: logStore.stats.totalLogs,
         errorLogsAnalyzed: (logStore.getByLevel('error') || []).length,
@@ -194,6 +202,76 @@ class LocalRootCauseService {
     };
   }
 
+  /**
+   * ATT&CK techniques observed, aggregated per technique id. Reuses the family
+   * targets already extracted by _extractTargets — no extra log scan.
+   * @returns {Array} [{ id, name, tactic, url, subtechnique, rationale, occurrences,
+   *                    families:[{family,occurrences}], files, routes, sources }]
+   */
+  _techniques(securitySignals, targets) {
+    const byId = new Map();
+    for (const sig of securitySignals) {
+      const tech = techniqueFor(sig.type);
+      if (!tech) continue;
+      const n = sig.occurrenceCount || 1;
+      const family = famKey(sig.type);
+      const t = targets.families[family] || {};
+      let entry = byId.get(tech.id);
+      if (!entry) {
+        entry = {
+          ...tech,
+          url: mitreUrl(tech.id),
+          occurrences: 0,
+          families: new Map(), // family -> { occurrences, engines:Set }
+          files: [],
+          routes: [],
+          sources: [],
+        };
+        byId.set(tech.id, entry);
+      }
+      entry.occurrences += n;
+      // securitySignals is one entry per (type, pattern); collapse to per-family
+      // so the UI renders families, not one row per log pattern.
+      const fam = entry.families.get(family) || { family, occurrences: 0, detectedBy: new Set() };
+      fam.occurrences += n;
+      fam.detectedBy.add(sig.type.startsWith('v2:') ? 'v2' : 'rules');
+      entry.families.set(family, fam);
+      // Union the per-family evidence (same technique reached via several families).
+      entry.files = cap(uniqBy(entry.files, t.files), 5);
+      entry.routes = cap(uniqBy(entry.routes, t.routes), 5);
+      entry.sources = cap(uniqBy(entry.sources, t.ips), 5);
+    }
+    return [...byId.values()]
+      .map((t) => ({
+        ...t,
+        families: [...t.families.values()]
+          .map((f) => ({ family: f.family, occurrences: f.occurrences, detectedBy: [...f.detectedBy].sort() }))
+          .sort((a, b) => b.occurrences - a.occurrences),
+      }))
+      .sort((a, b) => b.occurrences - a.occurrences);
+  }
+
+  /**
+   * Non-attack failures present in the data, from the SYS-* catalog. Separate
+   * from `techniques` on purpose: an upstream timeout is not an ATT&CK technique.
+   * @returns {Array} [{ id, name, meaning, fix, categories:[{category,occurrences}] }]
+   */
+  _systemErrors(top) {
+    const byCat = new Map();
+    for (const { pattern, cls } of top) {
+      const cat = cls.category;
+      byCat.set(cat, (byCat.get(cat) || 0) + pattern.occurrenceCount);
+    }
+    const out = [];
+    for (const [cat, occurrences] of byCat) {
+      if (cat === 'Security' || cat === 'Clean') continue;
+      const se = systemErrorFor(cat);
+      if (!se) continue;
+      out.push({ ...se, categories: [{ category: cat, occurrences }] });
+    }
+    return out.sort((a, b) => b.categories[0].occurrences - a.categories[0].occurrences);
+  }
+
   _rootCause(top, chains, securitySignals, securityDominant) {
     if (securityDominant) {
       // Aggregate signal types by count for concise summary
@@ -204,7 +282,8 @@ class LocalRootCauseService {
       const sorted = Object.entries(typeCounts).sort((a, b) => b[1] - a[1]);
       const top3 = sorted.slice(0, 3).map(([type, cnt]) => `${type} (${cnt})`).join(', ');
       const others = sorted.length > 3 ? ` + ${sorted.length - 3} more` : '';
-      return `Security-related events dominate the failures: ${securitySignals.length} signal pattern(s) — primarily ${top3}${others}, indicating external attack or automated scanning activity against the service.`;
+      const base = `Security-related events dominate the failures: ${securitySignals.length} signal pattern(s) — primarily ${top3}${others}, indicating external attack or automated scanning activity against the service.`;
+      return this._withTechniques(base, securitySignals);
     }
 
     const byCategory = {};
@@ -228,9 +307,23 @@ class LocalRootCauseService {
 
     if (chains.length > 0) {
       const chain = chains[0];
-      return `${CAUSE_TEXT[dominantCat] || 'An operational failure was detected.'} The error was consistently preceded by lower-severity events (${chain.precedingEvents[0]?.message || 'initial activity'} → ${chain.errorLog.message}), indicating a gradual degradation before failure.`;
+      return this._withTechniques(
+        `${CAUSE_TEXT[dominantCat] || 'An operational failure was detected.'} The error was consistently preceded by lower-severity events (${chain.precedingEvents[0]?.message || 'initial activity'} → ${chain.errorLog.message}), indicating a gradual degradation before failure.`,
+        securitySignals
+      );
     }
-    return `${CAUSE_TEXT[dominantCat] || 'An operational failure was detected.'} Representative pattern: ${dominantMessage}`;
+    return this._withTechniques(
+      `${CAUSE_TEXT[dominantCat] || 'An operational failure was detected.'} Representative pattern: ${dominantMessage}`,
+      securitySignals
+    );
+  }
+
+  /** Append the ATT&CK techniques behind the signal set to a narrative line. */
+  _withTechniques(text, securitySignals) {
+    const techs = techniquesFor(securitySignals.map((s) => s.type));
+    if (techs.length === 0) return text;
+    const named = techs.map((t) => `${t.id} ${t.name} [${t.tactic}]`).join('; ');
+    return `${text} Mapped to MITRE ATT&CK: ${named}.`;
   }
 
   _evidence(top) {
@@ -351,7 +444,7 @@ class LocalRootCauseService {
       }
       const ranked = Object.entries(families).sort((a, b) => b[1] - a[1]);
       for (const [fam, count] of ranked) {
-        const pb = PLAYBOOK_ALIASES[fam] ? PLAYBOOKS[PLAYBOOK_ALIASES[fam]] : PLAYBOOKS[fam];
+        const pb = PLAYBOOKS[fam];
         if (!pb) continue;
         const t = targets.families[fam] || {};
         // Skip families with no concrete targets — matching on host/JSON noise
@@ -360,6 +453,7 @@ class LocalRootCauseService {
         recs.push({
           action: pb.action,
           priority: pb.priority,
+          technique: techPayload(fam),
           rationale: `${count} ${fam.toLowerCase().replace(/_/g, ' ')} attempt(s) observed. ${pb.summary}`,
           steps: pb.steps,
           files: t.files || [],
@@ -386,6 +480,7 @@ class LocalRootCauseService {
       recs.push({
         action: 'Verify backend/upstream health and connection pool',
         priority: 'high',
+        systemError: systemErrorFor('Backend Communication'),
         rationale: 'Backend communication errors dominate; check upstream availability, connection limits, and retry/timeout configuration.',
         steps: [
           'Check upstream service health (load, latency, restarts) over the affected window.',
@@ -398,6 +493,7 @@ class LocalRootCauseService {
       recs.push({
         action: 'Inspect network path, DNS, and firewall rules',
         priority: 'medium',
+        systemError: systemErrorFor('Network'),
         rationale: 'Network-level errors indicate connectivity instability between tiers.',
         steps: ['Verify ICMP/TCP reachability across tiers.', 'Check DNS TTL/cache and resolution failures.', 'Review firewall/security-group changes in the incident window.'],
       });
@@ -406,6 +502,7 @@ class LocalRootCauseService {
       recs.push({
         action: 'Review resource limits and restart behavior',
         priority: 'high',
+        systemError: systemErrorFor(cats.has('Service Instability') ? 'Service Instability' : 'Performance'),
         rationale: 'Timeout/resource errors suggest under-provisioning or runaway workers; check memory/CPU and worker pool settings.',
         steps: ['Check memory/CPU saturation and swap during the window.', 'Review worker/thread pool limits and restart counts.', 'Correlate with deploy schedule or traffic spikes.'],
       });
@@ -414,6 +511,7 @@ class LocalRootCauseService {
       recs.push({
         action: 'Reconcile missing endpoints/assets and stop scan floods',
         priority: 'medium',
+        systemError: systemErrorFor('Resource Not Found'),
         rationale: 'High 400/404 volume indicates automated enumeration against routes that do not exist.',
         steps: ['Triage the missed routes listed here (broken links vs. attacker enumeration).', 'Rate-limit or challenge 404-heavy source IPs.', 'Serve a neutral 404 and log scans into a dedicated monitor.'],
         routes: targets.notFound.routes || [],
@@ -424,6 +522,7 @@ class LocalRootCauseService {
       recs.push({
         action: 'Audit configuration/file changes and restore integrity',
         priority: 'high',
+        systemError: systemErrorFor('Configuration'),
         rationale: 'Configuration/rootcheck anomalies were flagged — verify the changed system files against a trusted baseline.',
         steps: [
           'Inspect the flagged files for unauthorized modifications (ownership, permissions, contents).',
@@ -461,6 +560,8 @@ class LocalRootCauseService {
         causalChain: [],
         impact: 'No failure impact observed.',
         recommendations: [],
+        techniques: [],
+        systemErrors: [],
         confidence: 90,
         analysisNotes: 'Generated locally (no LLM). Dataset contained no error/warning patterns.',
       },

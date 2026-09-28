@@ -1,0 +1,19 @@
+# AIzen v2 — Python training dependencies (install on the local GPU machine)
+# Minimum floors set to the latest stable versions verified for this project.
+# torch CPU/GPU build is environment-specific; see README for the CUDA wheel line.
+#
+# Only packages actually imported by v2 code are listed (removed unused:
+# scikit-learn, transformers, requests, tqdm, huggingface_hub direct).
+
+# Deep-sequence training + inference (train/, prep/, export/)
+torch>=2.13.0
+numpy>=2.5.2
+onnx>=1.22.0
+onnxruntime>=1.29.0       # runtime: ONNX eval + INT8 quantization in export
+
+# Data ingestion
+datasets>=5.0.1           # Hugging Face corpora (hf_ingest.py)
+kaggle>=2.2.4             # Kaggle corpora (kaggle_ingest.py)
+pandas>=3.0.5             # CSV parsing in normalize.py
+
+# Optional GPU inference sidecar (v2/runtime/fastapi/requirements.txt handles these)

@@ -1,0 +1,5 @@
+{
+  "device": "cuda",
+  "best_attack_f1": 0.9953,
+  "meta_count": 8
+}

@@ -1,0 +1,22 @@
+# v2 standalone deployable — Render free tier example.
+#
+# NOTE: This is an ISOLATED deployable for the v2 runtime. It does NOT modify
+# the existing root render.yaml (server/) — the legacy app keeps its own config.
+#
+# It shows how to host the v2 Node ONNX classifier as its own Render web
+# service if you want to A/B it before wiring into the main backend.
+# (Recommended-free-tier is to run v2 in-process in the main Node server via an
+#  opt-in toggle once the model passes mixed_benchmark.js — see ADOPTION.md.)
+services:
+  - type: web
+    name: aizen-v2
+    env: node
+    rootDir: v2/runtime
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000

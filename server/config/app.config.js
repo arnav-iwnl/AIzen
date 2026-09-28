@@ -60,6 +60,13 @@ const config = {
     enabled: false,
     threshold: process.env.V2_THRESHOLD ? parseFloat(process.env.V2_THRESHOLD) : null,
     modelPath: null,
+    // Confidence a v2-alone verdict needs before it may classify a line Security
+    // on its own. v2 is a second opinion: it always contributes its attack_type
+    // and technique, but it only escalates a line the rules called clean when
+    // it is this sure. Without the bar the model's per-class thresholds (which
+    // sit near 0.05 because they are calibrated on an in-distribution holdout)
+    // let it flag a plain `GET /about 200` as credential_probe.
+    soloMinConfidence: parseFloat(process.env.V2_SOLO_MIN_CONFIDENCE) || 0.9,
   },
 
   // Real-time SIEM (SSE hub)

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Upload, Play, CheckCircle, AlertTriangle, Activity,
   Clock, Shield, Zap, BarChart3, RotateCcw, FileText,
-  TrendingUp, Search, Loader2, Download, Radar
+  TrendingUp, Search, Loader2, Download, Radar, Target, ExternalLink, Wrench
 } from 'lucide-react';
 import {
   Button, Badge, Card, CardHeader, CardTitle,
@@ -366,6 +366,146 @@ function TimelinePanel({ timeline, timings }) {
   );
 }
 
+// ── MITRE ATT&CK / system-error components (shared by tabs UI and PDF) ──────
+// `t.files/routes/sources` reuse the same chip vocabulary as the recovery
+// recommendations so evidence reads identically wherever it appears.
+function EvidenceChips({ technique }) {
+  const groups = [
+    { label: 'Files', color: 'text-orange-300', items: technique.files, render: (x) => x.path },
+    { label: 'Routes', color: 'text-sky-300', items: technique.routes, render: (x) => x.path },
+    { label: 'Source IPs', color: 'text-rose-300', items: technique.sources, render: (x) => x.ip },
+  ].filter((g) => g.items?.length > 0);
+  if (groups.length === 0) return null;
+  return (
+    <div className="space-y-2">
+      {groups.map((g) => (
+        <div key={g.label}>
+          <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-semibold mb-1.5">
+            {g.label} ({g.items.length})
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {g.items.map((x, j) => (
+              <code key={j} className="px-2 py-1 text-xs bg-black/50 border border-neutral-700 rounded font-mono break-all">
+                <span className={g.color}>{g.render(x)}</span>{' '}
+                <span className="text-neutral-500">×{x.count}</span>
+              </code>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TechniqueIdBadge({ technique, className = '' }) {
+  if (!technique?.id) return null;
+  return (
+    <a
+      href={technique.url || `https://attack.mitre.org/techniques/${String(technique.id).replace('.', '/')}/`}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      className={`inline-flex items-center gap-1 rounded border border-red-900/70 bg-red-500/10 px-2 py-0.5 font-mono text-[11px] font-bold text-red-300 hover:bg-red-500/20 ${className}`}
+      title={`${technique.name} — open on attack.mitre.org`}
+    >
+      {technique.id}
+      <ExternalLink className="w-3 h-3 opacity-70" />
+    </a>
+  );
+}
+
+function TechniquePanel({ techniques = [] }) {
+  if (!techniques.length) return null;
+  return (
+    <div className="space-y-3">
+      <h3 className="font-semibold text-white flex items-center gap-2">
+        <Target className="w-4 h-4 text-red-400" /> MITRE ATT&CK Techniques
+        <Badge variant="outline" className="border-neutral-700 text-neutral-400">{techniques.length}</Badge>
+      </h3>
+
+      {techniques.map((t) => (
+        <Card key={t.id} className="bg-red-500/5 border-red-900/40">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-start gap-2 flex-wrap">
+              <TechniqueIdBadge technique={t} />
+              <span className="font-bold text-white text-sm">{t.name}</span>
+              {t.subtechnique && (
+                <Badge variant="outline" className="border-neutral-700 text-neutral-400 text-[10px] h-fit">
+                  {t.subtechnique}
+                </Badge>
+              )}
+              <Badge variant="secondary" className="h-fit text-[10px]">{t.tactic}</Badge>
+              <span className="text-xs text-neutral-400 ml-auto tabular-nums">
+                ×{t.occurrences?.toLocaleString()}
+              </span>
+            </div>
+
+            {t.rationale && (
+              <p className="text-sm text-neutral-300 leading-relaxed">{t.rationale}</p>
+            )}
+
+            {t.families?.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 items-center">
+                <span className="text-[10px] uppercase tracking-wider text-neutral-500 font-semibold">Detected by</span>
+                {t.families.map((f, i) => (
+                  <span key={i} className="inline-flex items-center gap-1">
+                    <code className="px-1.5 py-0.5 text-[10px] bg-black/50 border border-neutral-700 rounded font-mono text-neutral-300">
+                      {f.family}
+                    </code>
+                    <Badge variant="outline" className="border-neutral-700 text-neutral-500 text-[10px] px-1.5 py-0">
+                      {Array.isArray(f.detectedBy) ? f.detectedBy.join('+') : f.detectedBy}
+                    </Badge>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <EvidenceChips technique={t} />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+// Non-attack failures are catalogued separately on purpose: an upstream timeout
+// is an operational fault, not an ATT&CK technique, and labelling it as one
+// would be wrong.
+function SystemErrorPanel({ systemErrors = [] }) {
+  if (!systemErrors.length) return null;
+  return (
+    <div className="space-y-3">
+      <h3 className="font-semibold text-white flex items-center gap-2">
+        <Wrench className="w-4 h-4 text-amber-400" /> System Errors Identified
+        <Badge variant="outline" className="border-neutral-700 text-neutral-400">{systemErrors.length}</Badge>
+      </h3>
+
+      {systemErrors.map((s) => (
+        <Card key={s.id} className="bg-amber-500/5 border-amber-900/40">
+          <CardContent className="p-4 space-y-2">
+            <div className="flex items-start gap-2 flex-wrap">
+              <Badge variant="outline" className="border-amber-800 text-amber-300 font-mono text-[11px] h-fit">
+                {s.id}
+              </Badge>
+              <span className="font-bold text-white text-sm">{s.name}</span>
+              <span className="text-xs text-neutral-400 ml-auto tabular-nums">
+                ×{s.categories?.[0]?.occurrences?.toLocaleString()} {s.categories?.[0]?.category}
+              </span>
+            </div>
+            {s.meaning && <p className="text-sm text-neutral-300 leading-relaxed">{s.meaning}</p>}
+            {s.fix && (
+              <p className="text-sm text-amber-200/80 leading-relaxed flex gap-2">
+                <span className="text-amber-400 font-semibold flex-shrink-0">Fix:</span>
+                <span>{s.fix}</span>
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
 function RootCausePanel({ rootCause, timings }) {
   return (
     <>
@@ -409,6 +549,9 @@ function RootCausePanel({ rootCause, timings }) {
         </div>
       </div>
 
+      <TechniquePanel techniques={rootCause?.analysis?.techniques} />
+      <SystemErrorPanel systemErrors={rootCause?.analysis?.systemErrors} />
+
       <div className="pt-4">
         <h3 className="font-semibold text-emerald-400 mb-4 flex items-center gap-2">
           <Shield className="w-4 h-4" /> Recovery Recommendations
@@ -422,6 +565,14 @@ function RootCausePanel({ rootCause, timings }) {
                                 {rec.priority?.toUpperCase()}
                               </Badge>
                               <h4 className="font-bold text-white text-sm">{rec.action}</h4>
+                              {rec.technique && (
+                                <TechniqueIdBadge technique={rec.technique} className="ml-auto" />
+                              )}
+                              {rec.systemError && (
+                                <Badge variant="outline" className="border-amber-800 text-amber-300 font-mono text-[11px] h-fit ml-auto">
+                                  {rec.systemError.id}
+                                </Badge>
+                              )}
                             </div>
                             <p className="text-sm text-neutral-400 mb-3 leading-relaxed">{rec.rationale}</p>
 

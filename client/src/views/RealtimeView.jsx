@@ -3,6 +3,8 @@ import { Radio, Trash2, ShieldAlert, Activity, AlertTriangle } from 'lucide-reac
 import { toast } from 'sonner';
 import { Badge, Button, Card, CardContent } from '../components/ui';
 import { openRealtimeStream, clearRealtime } from '../api';
+import TechniqueChips from '../components/TechniqueChips';
+import V2ModelBadge from '../components/V2ModelBadge';
 
 const LEVEL_VARIANT = {
   error: 'destructive', crit: 'destructive', critical: 'destructive', emerg: 'destructive',
@@ -158,6 +160,7 @@ export default function RealtimeView() {
           <p className="text-sm text-neutral-400">Live log stream — parsed, classified, and alerted locally</p>
         </div>
         <div className="flex items-center gap-3">
+          <V2ModelBadge />
           <span className={`flex items-center gap-2 text-sm ${connected ? 'text-emerald-400' : 'text-neutral-500'}`}>
             <span className={`w-2.5 h-2.5 rounded-full animate-pulse ${connected ? 'bg-emerald-400' : 'bg-neutral-600'}`} />
             {connected ? 'LIVE' : 'DISCONNECTED'}
@@ -337,6 +340,7 @@ export default function RealtimeView() {
                 <span className="flex-shrink-0 w-3 text-center">
                   {e.securityTypes?.length > 0 && <ShieldAlert className="w-3 h-3 text-rose-500 inline" />}
                 </span>
+                <TechniqueChips ev={e} className="flex-shrink-0 max-w-[26rem]" />
                 <span className="text-neutral-400 break-all whitespace-pre-wrap">{e.raw}</span>
               </div>
             ))

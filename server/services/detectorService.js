@@ -167,12 +167,23 @@ class DetectorService {
           finalExplanation = `${finalExplanation} (v2 unsure)`;
           finalInsight = `${finalInsight} Deep classifier inconclusive.`;
         } else if (!ruleSecurity && v2Attack) {
-          finalCategory = 'Security';
-          finalSeverity = 'high';
-          finalConfidence = Math.round(v2.attack_confidence * 100);
-          finalExplanation = `v2:${v2.attack_type}`;
-          finalInsight = `Deep classifier detected ${v2.attack_type} attack (${(v2.attack_confidence * 100).toFixed(1)}% confidence). No rule match.`;
-          r.securityTypes = [v2.attack_type];
+            // v2 is a second opinion: it contributes its attack_type (and so its
+            // ATT&CK technique) either way, but escalating a line to Security on
+            // its own now needs real confidence. See config.v2.soloMinConfidence.
+            // Previously any v2 verdict escalated, and with the near-zero
+            // per-class thresholds the model is calibrated to, that produced
+            // false Security classifications on ordinary requests.
+            const solo = v2.attack_confidence >= config.v2.soloMinConfidence;
+            if (solo) {
+                finalCategory = 'Security';
+                finalSeverity = 'high';
+            }
+            finalConfidence = Math.max(finalConfidence, Math.round(v2.attack_confidence * 100));
+            finalExplanation = solo ? `v2:${v2.attack_type}` : `${finalExplanation} (v2: ${v2.attack_type})`;
+            finalInsight = solo
+                ? `Deep classifier detected ${v2.attack_type} attack (${(v2.attack_confidence * 100).toFixed(1)}% confidence). No rule match.`
+                : `Deep classifier suspected ${v2.attack_type} (${(v2.attack_confidence * 100).toFixed(1)}%), below the ${(config.v2.soloMinConfidence * 100).toFixed(0)}% bar for escalating on its own.`;
+            r.securityTypes = [v2.attack_type];
         }
 
         r.classification.category = finalCategory;
@@ -180,7 +191,15 @@ class DetectorService {
         r.classification.confidence = finalConfidence;
         r.classification.explanation = finalExplanation;
         r.classification.insight = finalInsight;
-        v2Detections.record(patterns[j].fingerprint, v2Attack ? v2.attack_type : 'rule', v2Attack ? v2.attack_confidence : 0);
+        // Only real v2 verdicts belong in the registry. Consumers branch on
+        // `v2 ? v2Verdict : ruleVerdict` (localRootCauseService, localTimelineService),
+        // so recording rule-only hits here made every rule match look like a
+        // deep-model detection ("detected rule attack, 0.0% confidence") and
+        // escalated nginx system errors to category Security. The rule verdict is
+        // already recomputed from the message by each consumer.
+        if (v2Attack) {
+          v2Detections.record(patterns[j].fingerprint, v2.attack_type, v2.attack_confidence);
+        }
       });
     }
 

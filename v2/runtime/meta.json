@@ -1,0 +1,45 @@
+{
+  "max_len": 256,
+  "tokenizer": {
+    "type": "char",
+    "pad": 0,
+    "unk": 1,
+    "base": 256
+  },
+  "attack_index": {
+    "none": 0,
+    "sql-injection": 1,
+    "credential_probe": 2,
+    "path-traversal": 3,
+    "bruteforce": 4,
+    "xss": 5,
+    "other": 6
+  },
+  "category_index": {
+    "Request Processing": 0,
+    "Security": 1,
+    "Network": 2,
+    "Resource Not Found": 3,
+    "Configuration": 4,
+    "Performance": 5,
+    "Unknown": 6,
+    "Warning": 7
+  },
+  "severity_index": {
+    "info": 0,
+    "high": 1,
+    "medium": 2,
+    "low": 3,
+    "critical": 4
+  },
+  "attack_threshold": 0.05,
+  "attack_thresholds": {
+    "sql-injection": 0.05,
+    "credential_probe": 0.05,
+    "path-traversal": 0.05,
+    "bruteforce": 0.05,
+    "xss": 0.05,
+    "other": 0.05
+  },
+  "model": "lstm"
+}

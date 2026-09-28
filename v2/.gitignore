@@ -1,0 +1,34 @@
+# ── Regenerable / large: never commit ──────────────────────────────────────
+# These are derived from the HF corpora and the training run. Between them they
+# are ~530 MB, which is why they are ignored rather than tracked.
+data/
+datasets/
+reports/
+__pycache__/
+*.pyc
+.env
+
+# Model checkpoints and training ballots: every run writes a new best.pt plus
+# two ballots. Together these are ~130 MB per run and are fully regenerable
+# from data/ + datasets/, so only the small run reports are worth keeping.
+experiments/*/best.pt
+experiments/*/*.jsonl
+checkpoints/
+
+# ── Committed on purpose ───────────────────────────────────────────────────
+# v2/runtime/ holds the model the server actually loads (server/ml/v2Bridge.js
+# requires ../../v2/runtime/onnx_classifier). At ~3 MB it is cheap to track, and
+# committing it means a fresh clone or a Render build boots with a working model
+# and needs neither the Python/GPU pipeline nor a network fetch.
+#
+# The same artifact is published at huggingface.co/dr0wzy/aizen-siem/runtimev2,
+# and server/services/datasetDownloader.js re-fetches it if it is missing, so
+# deleting these locally is safe -- the server just downloads them at boot.
+#
+# v2/eval/baseline.json is committed too: it is the reference check:model
+# compares against, and without it the gate degrades to a 25% sanity bar.
+
+# Local venvs and installed packages, not source.
+runtime/fastapi/
+runtime/node_modules/
+*.onnx.tmp

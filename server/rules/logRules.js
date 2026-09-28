@@ -47,12 +47,22 @@ const STATUS_CATEGORY = {
 // Security scanner / attack signatures (extracted from contextSelector)
 const SECURITY_PATTERNS = [
   { type: 'SCANNER_SIGNATURE', regex: /(?:acunetix|nikto|sqlmap|nmap|wvstest|dirbuster)/i },
-  { type: 'SQL_INJECTION', regex: /(?:['"]?\s*(?:OR|AND|UNION)\s+\d|SELECT\s+.*FROM|DROP\s+TABLE|--\s*$|%27|%22.*(?:OR|AND))/i },
+  // The old form required OR/AND/UNION to be followed by a digit
+  // (`(?:OR|AND|UNION)\s+\d`), which misses the single most common payload
+  // there is: `?id=1' OR '1'='1`, where OR is followed by a quote. Allow an
+  // optional quote/comparison operator before the digit.
+  { type: 'SQL_INJECTION', regex: /(?:['"]?\s*(?:OR|AND|UNION)\s*['"]?\s*[=<>!]*\s*[\d'"]|SELECT\s+.*FROM|DROP\s+TABLE|--\s*$|%27|%22.*(?:OR|AND))/i },
   { type: 'XSS_PROBE', regex: /(?:<script|javascript:|onerror\s*=|onload\s*=|<xsstag>|domxss|<img\s+src)/i },
   { type: 'PATH_TRAVERSAL', regex: /(?:\/etc\/passwd|\.\.\/|\.\.\\|\/proc\/|\/var\/log)/i },
   { type: 'ADMIN_BRUTE_FORCE', regex: /(?:\/administrator\/|\/admin\/|\/wp-admin|\/login).*(?:POST|5\d{2})/i },
   { type: 'DIRECTORY_FORBIDDEN', regex: /(?:Directory index forbidden|forbidden by rule)/i },
-  { type: 'CREDENTIAL_PROBE', regex: /(?:task=user\.login|task=registration|\/wp-login|auth|token|\/\.env|\.env\.|\/\.ssh\/|\/\.docker\/|\/config\.|\/credentials?\/|\/secret\/|\/kube\/|\/aws\/|\/\.aws\/|\/gcp\/|\/\.gcp\/|\/azure\/|\/\.azure\/|\/\.ssh\/|id_rsa|id_ecdsa|\.pem|\.key|\.bak|\.tmp|\/admin\/|\/\.git\/|\/\.svn\/|\/\.hg\/)/i },
+  // Shape-based, matching v2/ingest/normalize.py::_CRED_PATH. The previous
+  // 22-item list matched bare words anywhere in the line — `auth`, `token`,
+  // `/admin/`, `.tmp` — so ordinary admin traffic and any line containing
+  // "auth" was reported as T1552.001 "Credentials In Files", which is how that
+  // technique came to dominate the RCA. Train-time and serve-time labelers must
+  // agree, or the model learns one thing and the rules assert another.
+  { type: 'CREDENTIAL_PROBE', regex: /(?:task=user\.login|task=registration|\/wp-login|\/\.[a-z0-9_-]{2,}\/?|\.(?:env|pem|key|p12|pfx|jks|keystore|bak|old|orig|save|swp|tmp|sql|db|sqlite|conf|ini|cfg|yaml|yml|json|xml|log)(?:\b|[?/])|(?:credentials?|secrets?|service[_-]account|api[_-]?key|apikey|access[_-]?key|private[_-]?key|client[_-]?secret|auth[_-]?token|bearer|gcp|gpt|aws|azure|firebase|stripe|sendgrid|twilio|slack|docker|kube|k8s|gitlab|github)s?[-_./][\w.-]*|id_rsa|id_dsa|id_ecdsa|id_ed25519|authorized_keys|known_hosts|(?:phpinfo|server-info|xmlrpc\.php|actuator|adminer|phpmyadmin|wp-json|[/?.](?:test|debug|info|shell|eval|status)\b))/i },
   { type: 'AUTH_FAILURE', regex: /(?:Failed password|authentication failure|invalid user|pam_authenticate|login attempt.*fail)/i },
 ];
 
@@ -107,8 +117,17 @@ function classify(opts) {
   if (statusMatch) status = parseInt(statusMatch[1], 10);
 
   const securityTypes = [];
+  // Match against a URL-decoded copy as well. Payloads in access logs are
+  // almost always percent-encoded (`?q=%3Cscript%3E`, `?id=1%27%20OR%201=1`),
+  // and the training-side labeler decodes before matching — so the model learned
+  // the decoded form while these rules were blind to it. Decoding is only used
+  // for SECURITY matching; category/nginx matching stays on the original text.
+  let decoded = '';
+  if (/%[0-9a-f]{2}/i.test(text)) {
+    try { decoded = decodeURIComponent(text.replace(/\+/g, ' ')); } catch { decoded = text; }
+  }
   for (const { type, regex } of SECURITY_PATTERNS) {
-    if (regex.test(text)) securityTypes.push(type);
+    if (regex.test(text) || (decoded && regex.test(decoded))) securityTypes.push(type);
   }
   const nginxSignals = [];
   for (const { type, regex } of NGINX_ERROR_PATTERNS) {

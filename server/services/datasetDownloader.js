@@ -1,15 +1,21 @@
 /**
- * Dataset Downloader - downloads v2 model and training datasets at boot
- * if they are missing from disk. Uses a public bucket URL from env.
+ * Dataset Downloader - downloads the v2 runtime (and, optionally, the training
+ * datasets) at boot if they are missing from disk.
+ *
+ * The runtime is CRITICAL: server/v2Bridge.js requires ../../v2/runtime/
+ * onnx_classifier, which in turn requires ./tokenizer. Without all four runtime
+ * files v2 silently degrades to disabled on a fresh clone or a Render deploy.
+ * So these are always fetched, from a public default that needs no env var.
+ *
+ * The datasets are OPTIONAL and large (the web-attack-detection corpus alone is
+ * ~178 MB), so they stay behind an explicit DATASET_BUCKET_URL.
  *
  * Files managed:
- *   - v2/runtime/model.onnx
- *   v2/runtime/meta.json
+ *   v2/runtime/model.onnx, model.onnx.data, meta.json, tokenizer.js
  *   v2/datasets/web-attacks/hf.jsonl
  *   v2/datasets/http-attack-requests/hf.jsonl
  *   v2/datasets/web-attack-detection/hf.jsonl
  *   v2/datasets/malicious-urls/malicious-urls-dataset.zip (kaggle)
- *   v2/datasets/malicious-urls/malicious_phish.csv (extracted)
  *   data/access.log, test.log, Apache_2k.log, synthetic_error.log
  *
  * Usage: await ensureAll() from startServer() in index.js
@@ -24,23 +30,34 @@ try {
 } catch (e) {
   fhHttps = null;
 }
-const { extract } = require('tar');
-const { createGunzip } = require('zlib');
-const { pipeline } = require('stream/promises');
-
-const config = require('../config/app.config');
 
 const V2_ROOT = path.resolve(__dirname, '..');
 const DATASETS_DIR = path.join(V2_ROOT, 'datasets');
 const RUNTIME_DIR = path.join(V2_ROOT, 'runtime');
 const DATA_DIR = path.join(V2_ROOT, 'data');
 
-const REQUIRED_FILES = [
-  // v2 runtime model
-  { path: path.join(RUNTIME_DIR, 'model.onnx'), url: null }, // built from bucket
-  { path: path.join(RUNTIME_DIR, 'meta.json'), url: null },
-  // v2 training datasets
-  { path: path.join(DATASETS_DIR, 'web-attacks', 'hf.jsonl'), url: null },
+// Default source for the runtime. Public repo, so no env var is required to boot.
+const RUNTIME_BASE = (process.env.V2_RUNTIME_BASE || 'https://huggingface.co/dr0wzy/aizen-siem/resolve/main')
+  .replace(/\/+$/, '');
+// Remote folder holding the CURRENT model. The repo also carries an older
+// `runtime/` used as a fallback; pointing at that one by accident would silently
+// serve a model that cannot emit half the MITRE labels, so the name is explicit.
+const RUNTIME_REMOTE_DIR = (process.env.V2_RUNTIME_REMOTE_DIR || 'runtimev2').replace(/^\/+|\/+$/g, '');
+
+// Normalize bucket base: trim trailing slashes to avoid double-slash issues
+const BUCKET_BASE = process.env.DATASET_BUCKET_URL ? process.env.DATASET_BUCKET_URL.replace(/\/+$|\/$/g, '') : null;
+
+// The four files the classifier cannot run without. model.onnx keeps its weights
+// in an external .data sidecar, and tokenizer.js is required by onnx_classifier.js
+// -- omitting either yields a model that downloads "successfully" and then fails
+// to load.
+const RUNTIME_FILES = ['model.onnx', 'model.onnx.data', 'meta.json', 'tokenizer.js'].map((name) => ({
+  path: path.join(RUNTIME_DIR, name),
+  url: `${RUNTIME_BASE}/${RUNTIME_REMOTE_DIR}/${name}`,
+}));
+
+const DATASET_FILES = [
+  { path: path.join(DATASETS_DIR, 'web-attacks', 'hf.jsonl'), url: null }, // built from bucket
   { path: path.join(DATASETS_DIR, 'http-attack-requests', 'hf.jsonl'), url: null },
   { path: path.join(DATASETS_DIR, 'web-attack-detection', 'hf.jsonl'), url: null },
   { path: path.join(DATASETS_DIR, 'malicious-urls', 'malicious-urls-dataset.zip'), url: null },
@@ -50,9 +67,6 @@ const REQUIRED_FILES = [
   { path: path.join(DATA_DIR, 'Apache_2k.log'), url: null },
   { path: path.join(DATA_DIR, 'synthetic_error.log'), url: null },
 ];
-
-// Normalize bucket base: trim trailing slashes to avoid double-slash issues
-const BUCKET_BASE = process.env.DATASET_BUCKET_URL ? process.env.DATASET_BUCKET_URL.replace(/\/+$|\/$/g, '') : null;
 
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) {
@@ -83,41 +97,45 @@ async function downloadFile(url, destPath) {
   });
 }
 
-async function extractZip(zipPath, destDir) {
-  // For zip files, we use tar if it's a .tar.gz, otherwise we need unzip
-  // For simplicity, we'll just ensure the file exists - extraction happens on demand
-  return Promise.resolve();
-}
-
-async function ensureAll() {
-  if (!BUCKET_BASE) {
-    console.warn('[datasetDownloader] DATASET_BUCKET_URL not set — skipping dataset download');
+async function downloadAll(files, label) {
+  const missing = files.filter((f) => !fs.existsSync(f.path));
+  if (!missing.length) {
+    console.log(`[datasetDownloader] ${label}: all ${files.length} files present`);
     return;
   }
-
-  console.log('[datasetDownloader] Checking and downloading missing assets...');
-
-  for (const file of REQUIRED_FILES) {
-    if (fs.existsSync(file.path)) {
-      continue;
-    }
-
-    const url = BUCKET_BASE.replace(/\/$/, '') + '/' + path.relative(V2_ROOT, file.path).replace(/\\/g, '/');
-    console.log(`[datasetDownloader] Downloading ${url} -> ${file.path}`);
-
+  console.log(`[datasetDownloader] ${label}: ${missing.length}/${files.length} missing, downloading...`);
+  for (const file of missing) {
+    console.log(`[datasetDownloader] Downloading ${file.url}`);
     try {
-      await downloadFile(url, file.path);
-      console.log(`[datasetDownloader] Downloaded ${file.path}`);
+      await downloadFile(file.url, file.path);
     } catch (err) {
-      console.warn(`[datasetDownloader] Failed to download ${url}: ${err.message}`);
+      console.warn(`[datasetDownloader] Failed to download ${file.url}: ${err.message}`);
       // Continue - v2 will gracefully degrade
     }
   }
+}
 
-  // Extract malicious-urls zip if needed
+async function ensureAll() {
+  // The runtime always: without it server/v2Bridge.js loads nothing and v2 is
+  // silently disabled, which is exactly what a fresh clone / Render deploy hits.
+  await downloadAll(RUNTIME_FILES, 'runtime');
+
+  // Datasets only when explicitly configured - the corpora are hundreds of MB and
+  // are needed for training, not for serving.
+  if (BUCKET_BASE) {
+    const withUrls = DATASET_FILES.map((f) => ({
+      path: f.path,
+      url: BUCKET_BASE + '/' + path.relative(V2_ROOT, f.path).replace(/\\/g, '/'),
+    }));
+    await downloadAll(withUrls, 'datasets');
+  } else {
+    console.warn('[datasetDownloader] DATASET_BUCKET_URL not set — skipping dataset download');
+  }
+
+  // The malicious-urls CSV is extracted on first use by kaggle_ingest.py
+  // (unzip=True); here we only confirm the archive landed.
   const zipPath = path.join(DATASETS_DIR, 'malicious-urls', 'malicious-urls-dataset.zip');
   if (fs.existsSync(zipPath)) {
-    // The CSV is extracted on first use by kaggle_ingest.py (unzip=True)
     console.log('[datasetDownloader] malicious-urls zip available');
   }
 

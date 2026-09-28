@@ -94,7 +94,17 @@ app.get('/api/health/extended', async (req, res, next) => {
     if (v2Enabled) {
       const clf = await v2Bridge.get();
       v2Loaded = !!clf;
-      v2Info = clf ? { threshold: clf.threshold || null } : null;
+      // Report WHICH artifact booted, not just that one did. The model repo ships
+      // two runtimes (an older `runtime/` kept as a fallback, plus the current
+      // `runtimev2/`), and the 7-class output space is a genuine limit - it cannot
+      // emit scanner/T1021/T1486/T1110/T1041/T1068 - so the served label set is the
+      // thing an operator or the UI needs to see.
+      v2Info = clf ? {
+        threshold: clf.threshold || null,
+        attackLabels: Object.keys(clf.meta.attack_index || {}),
+        perClassThresholds: clf.attackThresholds || {},
+        soloMinConfidence: process.env.V2_SOLO_MIN_CONFIDENCE || '0.9',
+      } : null;
     }
 
     return res.success({

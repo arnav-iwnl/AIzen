@@ -97,9 +97,12 @@ function formatDuration(ms) {
  * "12:05 PM 10/07/2026" (12-hour + AM/PM + DD/MM/YYYY).
  */
 function formatTimelineTimestamp(iso) {
-  if (!iso) return '';
+  // ponytail: never return '' - callers (timeline events, RCA causal chain)
+  // treat the result as a required label, and an empty string rendered blank
+  // in the UI and broke the smoke schema check on logs without timestamps.
+  if (!iso) return 'unknown time';
   const d = new Date(iso);
-  if (isNaN(d.getTime())) return '';
+  if (isNaN(d.getTime())) return 'unknown time';
   let hours = d.getHours();
   const minutes = String(d.getMinutes()).padStart(2, '0');
   const ampm = hours >= 12 ? 'PM' : 'AM';

@@ -31,6 +31,18 @@ export async function checkHealth() {
 }
 
 /**
+ * Which v2 model is actually serving: label space, tuned per-class thresholds,
+ * and the solo-escalation confidence. Worth surfacing because the model repo
+ * carries two runtimes (an older `runtime/` and the current `runtimev2/`), and
+ * the 7-class output space cannot emit scanner/T1021/T1486/T1110/T1041/T1068.
+ */
+export async function getV2Status() {
+  const res = await fetch(`${API_BASE}/health/extended`);
+  if (!res.ok) throw new Error('Failed to load v2 status');
+  return res.json();
+}
+
+/**
  * Get log store stats (after upload or preload).
  */
 export async function getLogStats() {

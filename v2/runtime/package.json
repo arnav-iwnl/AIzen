@@ -1,0 +1,15 @@
+{
+  "name": "aizen-v2-runtime",
+  "version": "1.0.0",
+  "description": "AIzen v2 — in-process ONNX classifier for realtime + batch log detection (Node runtime)",
+  "main": "onnx_classifier.js",
+  "type": "commonjs",
+  "scripts": {
+    "classify": "node onnx_classifier.js",
+    "benchmark": "node mixed_benchmark.js",
+    "self-test": "node onnx_classifier.js --self-test"
+  },
+  "dependencies": {
+    "onnxruntime-node": "^1.19.0"
+  }
+}

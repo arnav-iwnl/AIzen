@@ -10,13 +10,13 @@ Usage examples:
   python ml/publish_to_hf.py --dry-run --only-runtime
 
   # upload runtime + data/datasets
-  python ml/publish_to_hf.py --repo drowzy/aizen-siem --token $HF_TOKEN --include-data
+  python ml/publish_to_hf.py --repo dr0wzy/aizen-siem --token $HF_TOKEN --include-data
 
   # delete specific files from the repo (revert accidental upload)
-  python ml/publish_to_hf.py --repo drowzy/aizen-siem --token $HF_TOKEN --revert-paths runtime/model.onnx v2/runtime/meta.json
+  python ml/publish_to_hf.py --repo dr0wzy/aizen-siem --token $HF_TOKEN --revert-paths runtime/model.onnx v2/runtime/meta.json
 
   # delete by prefix (remove everything under `v2/` in the repo)
-  python ml/publish_to_hf.py --repo drowzy/aizen-siem --token $HF_TOKEN --revert-prefix v2/
+  python ml/publish_to_hf.py --repo dr0wzy/aizen-siem --token $HF_TOKEN --revert-prefix v2/
 """
 import argparse
 import json

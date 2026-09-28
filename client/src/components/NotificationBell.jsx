@@ -91,6 +91,19 @@ export default function NotificationBell() {
                           <span className={`text-xs font-bold ${meta.color}`}>{meta.label}</span>
                           <span className="text-[10px] text-neutral-500">{n.confidence}%</span>
                         </div>
+                        {n.techniques?.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {n.techniques.map((t) => (
+                              <span
+                                key={t.id}
+                                title={`${t.name} — ${t.tactic}`}
+                                className="inline-flex items-center rounded border border-red-900/70 bg-red-500/10 px-1.5 py-0 font-mono text-[10px] font-semibold text-red-300"
+                              >
+                                {t.id}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         <p className="text-xs text-neutral-400 truncate mt-0.5">{n.message?.slice(0, 100)}</p>
                         <p className="text-[10px] text-neutral-600 mt-1">{formatTime(n.ts)}</p>
                       </div>

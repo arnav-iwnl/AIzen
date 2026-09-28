@@ -2,6 +2,10 @@
 
 AIzen is an AI-powered **SIEM** that ingests server logs to identify attacks and errors, build chronological incident timelines, and determine root causes with actionable recovery steps — backed by a local deep-learning attack classifier and live breach notifications.
 
+## Demo
+
+🎬 [Product tour (26s, 1080p)](./brag-output/brag.mp4)
+
 ## Features
 
 1. **Realtime Breach Detection:** Every ingested log line is streamed through an in-memory hub (SSE feed), classified by rule-based heuristics **and** a v2 deep ONNX classifier (XSS, SQL injection, path traversal, brute force, scanners), and surfaced in a live dashboard.

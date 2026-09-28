@@ -11,7 +11,12 @@
     "pull:loghub": "node scripts/pullLoghub.js",
     "train": "python ../ml/train.py",
     "smoke": "node scripts/smoke.js",
-    "smoke:realtime": "node scripts/realtime-smoke.js"
+    "smoke:realtime": "node scripts/realtime-smoke.js",
+    "check:join": "node scripts/check-v2join.js",
+    "check:mitre": "node scripts/check-mitre.js",
+    "check:model": "node scripts/check-model.js",
+    "check:tokenizer": "node scripts/check-tokenizer.js",
+    "check:rtmitre": "node scripts/check-rtmitre.js"
   },
   "keywords": [
     "siem",

@@ -44,15 +44,41 @@ function formatApacheTimestamp(date = new Date()) {
 }
 
 /**
+ * Route -> ATT&CK technique that the route actually models.
+ *
+ * This is GROUND TRUTH, not detection input: the SIEM still has to work the
+ * attack out from the log line on its own. It rides along so the dashboard can
+ * show "detected T1190" next to "expected T1190" — which is what makes the
+ * detector's accuracy observable instead of asserted.
+ */
+const ROUTE_TECHNIQUES = [
+  [/^\/product\b/i, ['T1190']],                                  // SQL injection
+  [/^\/(search|profile)\b/i, ['T1059.007']],                     // reflected XSS -> JS
+  [/^\/download\b/i, ['T1083', 'T1552.001']],                    // traversal -> file discovery / creds in files
+  [/^\/login\b/i, ['T1110.003']],                                // password spraying
+  // /api/admin* is UNAUTHENTICATED access to an admin surface, i.e. credential
+  // access — not T1190, which means an exploit actually landed. A 401 here is an
+  // access attempt, so calling it "Exploited Public-Facing Application" would
+  // be a false ground truth.
+  [/^\/api\/admin\b/i, ['T1110']],                              // unauthenticated admin access
+];
+
+function expectedTechniques(url) {
+  const path = String(url || '').split('?')[0];
+  for (const [re, ids] of ROUTE_TECHNIQUES) if (re.test(path)) return ids;
+  return null;
+}
+
+/**
  * Forward log line to AIzen backend for real-time breach detection
  * Fire-and-forget: doesn't block the response
  */
-async function forwardToAIzen(logLine, source = 'vulnerable-app') {
+async function forwardToAIzen(logLine, source = 'vulnerable-app', techniques = null) {
   try {
     await fetch(`${process.env.AIZEN_BACKEND_URL || 'http://localhost:3000'}/api/realtime/ingest`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ raw: logLine, source: 'vulnerable-app' }),
+      body: JSON.stringify({ raw: logLine, source, ...(techniques ? { techniques } : {}) }),
     }).catch(() => {}); // Fire-and-forget, ignore errors
   } catch (err) {
     // Silently ignore - logging shouldn't break the app
@@ -73,8 +99,9 @@ module.exports = (req, res, next) => {
     // Log to console (for container logs)
     console.log(`[Vulnerable Site] ${logLine}`);
     
-    // Forward to AIzen backend (fire-and-forget)
-    forwardToAIzen(logLine, 'vulnerable-app');
+    // Forward to AIzen backend (fire-and-forget), declaring which ATT&CK
+    // technique this route models so the SIEM can be checked against it.
+    forwardToAIzen(logLine, 'vulnerable-app', expectedTechniques(req.originalUrl || req.url));
     
     // Call original end
     res.end = originalEnd;

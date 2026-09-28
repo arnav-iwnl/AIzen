@@ -38,7 +38,15 @@ assert(ev.every((e) => e.category === 'Security'), 'all classified as Security')
 console.log('\n=== trigger get-flood x3 ===');
 await demoService.trigger('get-flood', 3);
 ev = realtimeHub.events.slice(-3);
-assert(ev.every((e) => e.securityTypes.length === 0 || e.category === 'Security'), 'GET flood lines either benign or Security');
+// v2 is a bounded second opinion: it may attach a signal to a line the rules
+// called ordinary, but then the event is marked `v2Only` and does NOT escalate.
+// So the invariant is "Security, or benign, or explicitly non-escalating" — not
+// "any securityType implies Security", which was the pre-`V2_SOLO_MIN_CONFIDENCE`
+// behaviour.
+assert(
+  ev.every((e) => e.category === 'Security' || e.securityTypes.length === 0 || e.v2Only === true),
+  'GET flood lines are benign, Security, or an explicitly non-escalating v2 signal'
+);
 assert(ev.every((e) => e.category === 'Request Processing' || e.category === 'Security'), 'GET flood classified (normal traffic or Security via v2)');
 
 console.log('\n=== trigger backend-error x3 ===');

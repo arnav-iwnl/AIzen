@@ -34,6 +34,7 @@ function App() {
           ts: ev.ts,
           level: ev.level,
           securityTypes: ev.securityTypes,
+          techniques: ev.techniques,
           ip: ev.ip,
         });
       }

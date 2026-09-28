@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AIzen &mdash; Interview Q&amp;A</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c232c; --line:#2a323d;
+    --fg:#e6edf3; --muted:#9aa7b4; --accent:#4da3ff; --accent2:#7ee787;
+    --warn:#ffb454; --bad:#ff7b72; --code:#c9d1d9;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --bg:#ffffff; --panel:#f6f8fa; --panel2:#eef1f5; --line:#d5dbe2;
+      --fg:#1f2328; --muted:#5b6672; --accent:#0b62d0; --accent2:#116329;
+      --warn:#8a5a00; --bad:#b3261e; --code:#1f2328;
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth; scroll-padding-top:1.5rem}
+  body{
+    margin:0; background:var(--bg); color:var(--fg);
+    font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    overflow-wrap:anywhere;
+  }
+  .wrap{max-width:60rem; margin:0 auto; padding:2rem 1.25rem 5rem}
+  header h1{font-size:1.9rem; margin:0 0 .35rem; letter-spacing:-.02em}
+  header p.sub{color:var(--muted); margin:0 0 1.5rem}
+  nav.toc{
+    position:sticky; top:0; z-index:10; background:var(--bg);
+    border:1px solid var(--line); border-radius:10px; padding:.7rem .9rem; margin-bottom:2rem;
+  }
+  nav.toc b{display:block; font-size:.72rem; text-transform:uppercase; letter-spacing:.09em; color:var(--muted); margin-bottom:.35rem}
+  nav.toc ol{margin:0; padding-left:1.2rem}
+  nav.toc li{margin:.12rem 0}
+  nav.toc a{color:var(--accent); text-decoration:none; font-size:.92rem}
+  nav.toc a:hover{text-decoration:underline}
+  section{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:1.4rem 1.5rem; margin:0 0 1.6rem; break-inside:avoid; page-break-inside:avoid}
+  section > h2{font-size:1.25rem; margin:0 0 .3rem; letter-spacing:-.01em; scroll-margin-top:6.5rem}
+  h3{font-size:1rem; margin:1.5rem 0 .4rem; color:var(--accent2)}
+  h4{font-size:.92rem; margin:1.1rem 0 .3rem; color:var(--fg)}
+  p{margin:.55rem 0}
+  ul,ol{margin:.5rem 0 .5rem 1.2rem; padding:0}
+  li{margin:.3rem 0}
+  .summary{
+    border-left:3px solid var(--accent); background:var(--panel2);
+    padding:.7rem .9rem; border-radius:0 8px 8px 0; margin:.2rem 0 1rem;
+  }
+  .summary strong{color:var(--accent)}
+  code{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+    font-size:.87em; background:var(--panel2); border:1px solid var(--line);
+    border-radius:4px; padding:.05em .35em; white-space:pre-wrap;
+  }
+  pre{
+    background:var(--panel2); border:1px solid var(--line); border-radius:8px;
+    padding:.75rem .9rem; overflow-x:auto; font-size:.82rem; line-height:1.5;
+  }
+  pre code{background:none; border:none; padding:0; white-space:pre; font-size:inherit}
+  table{border-collapse:collapse; width:100%; margin:.8rem 0; font-size:.88rem}
+  th,td{border:1px solid var(--line); padding:.4rem .55rem; text-align:left; vertical-align:top}
+  th{background:var(--panel2); font-weight:600}
+  td.num{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap}
+  .up{color:var(--accent2); font-weight:600}
+  .down{color:var(--bad); font-weight:600}
+  .muted{color:var(--muted)}
+  .tag{
+    display:inline-block; font-size:.7rem; text-transform:uppercase; letter-spacing:.06em;
+    border:1px solid var(--line); border-radius:20px; padding:.05rem .5rem; color:var(--muted);
+  }
+  footer{color:var(--muted); font-size:.82rem; text-align:center; padding-top:1rem}
+  @media print{
+    body{background:#fff; color:#000; font-size:11pt}
+    nav.toc{position:static}
+    nav.toc a{color:#000; text-decoration:none}
+    section{border:1px solid #bbb; break-inside:avoid; page-break-inside:avoid}
+    pre,code{white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word}
+    table{break-inside:avoid; page-break-inside:avoid}
+    h2,h3{break-after:avoid; page-break-after:avoid}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>AIzen &mdash; Interview Q&amp;A</h1>
+  <p class="sub">Self-hosted SIEM &middot; Node/Express + React 19 &middot; deterministic rules + a local ONNX char-LSTM. Everything below is grounded in this repository; every number was measured here.</p>
+</header>
+
+<nav class="toc">
+  <b>Contents</b>
+  <ol>
+    <li><a href="#q1">Q1 &mdash; What is this project about?</a></li>
+    <li><a href="#q2">Q2 &mdash; Explain the architecture.</a></li>
+    <li><a href="#q3">Q3 &mdash; Why was this architecture chosen over others?</a></li>
+    <li><a href="#q4">Q4 &mdash; What would you like to improve in this project?</a></li>
+    <li><a href="#q5">Q5 &mdash; How is model training, datasets, understanding why LSTM is used?</a></li>
+  </ol>
+</nav>
+
+<section id="facts">
+  <h2>Project facts at a glance</h2>
+  <div class="summary"><strong>Read this table first.</strong> Every figure below is a measured before/after from this repo, and they are the evidence behind the architectural claims in Q3.</div>
+  <table>
+    <thead><tr><th>Metric</th><th>Before</th><th>After</th><th>What changed</th></tr></thead>
+    <tbody>
+      <tr><td>Corpus balance (benign share)</td><td class="num">6.9%</td><td class="num up">39.9%</td><td>Loghub Apache/OpenSSH/NASA + local OSSEC/Wazuh benign rows added</td></tr>
+      <tr><td><code>other</code> share of corpus</td><td class="num">45%</td><td class="num up">~10.6%</td><td>Shape-based heuristic labeler replaced a 22-item credential denylist</td></tr>
+      <tr><td>Benign false-positive rate (held-out SIEM)</td><td class="num">10.28%</td><td class="num up">2.17%</td><td>Envelope/payload split; model reads the log line, not the SIEM wrapper</td></tr>
+      <tr><td>SIEM-envelope false positives</td><td class="num">1792</td><td class="num up">157</td><td>1,792 of 2,123 were one benign Cisco switch syslog scored <code>bruteforce</code></td></tr>
+      <tr><td>Wazuh attack recall</td><td class="num">0% (blind)</td><td class="num up">100%</td><td>Brute-force class grew 186 &rarr; 799 rows in the corpus's own syslog shape</td></tr>
+      <tr><td>Attack/benign split</td><td class="num">93.1 / 6.9</td><td class="num">~60 / 39.9</td><td>Attack recall is worthless at a 93% attack prior</td></tr>
+    </tbody>
+  </table>
+  <table>
+    <thead><tr><th>Model artifact</th><th>Value</th></tr></thead>
+    <tbody>
+      <tr><td>Architecture</td><td>Char-level bidirectional LSTM, 2 layers, hidden 128, mean-over-sequence pooling</td></tr>
+      <tr><td>Input</td><td>256 characters, byte-level (base 256), no vocabulary file</td></tr>
+      <tr><td>Parameters</td><td class="num">~617k (96.5% in the encoder)</td></tr>
+      <tr><td>Serving artifact</td><td class="num">INT8 ONNX, ~640 KB, in-process via <code>onnxruntime-node</code></td></tr>
+      <tr><td>Codebase knowledge graph</td><td class="num">667 nodes / 984 edges / 70 communities (graphify)</td></tr>
+    </tbody>
+  </table>
+  <p class="muted">Verification gates: <code>npm run smoke</code>, <code>smoke:realtime</code>, <code>check:mitre</code>, <code>check:join</code>, <code>check:model</code>, <code>check:tokenizer</code>, <code>check:rtmitre</code>.</p>
+</section>
+
+<section id="q1">
+  <h2>Q1 &mdash; What is this project about?</h2>
+  <div class="summary"><strong>60-second version:</strong> AIzen is a self-hosted SIEM that ingests real server logs, decides &mdash; deterministically &mdash; whether each line is an attack or an operational fault, stitches the hits into an incident timeline with root-cause analysis, and labels every finding with the right MITRE ATT&amp;CK technique. It runs entirely offline on one box: no hosted LLM, no Python at request time, no external API calls in the analysis path.</div>
+
+  <p>Concretely it does the following:</p>
+  <ul>
+    <li><strong>Upload + real-time ingest.</strong> Upload <code>.log</code>/<code>.txt</code>/<code>.gz</code> files (streamed with <code>readline</code>, so 100K+ lines do not exhaust memory) <em>or</em> push lines live over <code>POST /api/realtime/ingest</code> and watch SSE frames arrive. The demo lab replays payload pools through the exact same pipeline.</li>
+    <li><strong>Classification.</strong> Every line gets a category, severity and confidence from the rule engine, plus a second opinion from the ONNX classifier: attack type, category, severity.</li>
+    <li><strong>Incidents.</strong> Patterns are fingerprinted and deduplicated &mdash; <code>Connection refused on port &lt;NUM&gt;</code> collapses to one pattern with a count, not 4,000 rows.</li>
+    <li><strong>Timeline.</strong> Events are time-windowed into buckets, stratified-sampled, and expanded with &plusmn;N context lines so you see what surrounded the error.</li>
+    <li><strong>Root-cause analysis.</strong> <code>localRootCauseService</code> returns <code>rootCause</code>, <code>evidence[]</code>, <code>causalChain[]</code>, <code>impact</code>, <code>recommendations[]</code>, <code>techniques[]</code>, <code>systemErrors[]</code>, <code>confidence</code> and <code>analysisNotes</code>.</li>
+    <li><strong>ATT&amp;CK mapping.</strong> One vocabulary, <code>server/mitre/attackMap.js</code>, serves both detectors, plus a separate <code>SYS-*</code> catalog for non-attack faults. Every recommendation carries a technique; every operational recommendation carries a <code>SYS-*</code> id.</li>
+    <li><strong>PDF export</strong> of the incident report.</li>
+  </ul>
+
+  <p><span class="tag">Service 1</span> The <strong>AIzen backend on :3000</strong> &mdash; Express, REST + SSE, rule engine, ONNX classifier, RCA, ATT&amp;CK, Telegram alerts, PDF export. <span class="tag">Service 2</span> The <strong>React 19 + Vite dashboard</strong>, plus a third process for the lab: an <strong>intentionally vulnerable Express site on :5000</strong> (<code>/product</code> SQLi, <code>/search</code> and <code>/profile</code> XSS, <code>/download</code> path traversal, <code>/login</code> brute force, <code>/api/admin</code>). It logs every request in Apache format, forwards each line to the realtime ingest endpoint, and declares which ATT&amp;CK technique each route models &mdash; as <em>ground truth</em>, so a miss is visible on the live feed without influencing classification.</p>
+</section>
+
+<section id="q2">
+  <h2>Q2 &mdash; Explain the architecture.</h2>
+  <div class="summary"><strong>Short version:</strong> six layers &mdash; parse, store, decide (rules, then the model), map to ATT&amp;CK, serve (REST + SSE), explain (timeline + RCA). The only mutable state is an in-memory ring; everything else is a pure function of a log line.</div>
+
+  <h3>1. Ingest and parsers</h3>
+  <p><code>ParserFactory</code> auto-detects the format &mdash; Apache Error, Apache Access, Nginx, and OSSEC/Wazuh alert blocks &mdash; and extracts structured fields including the client IP. Uploads stream to disk and are processed line-by-line; the realtime path takes one line at a time.</p>
+  <p>The most consequential parser decision is the <strong>envelope / payload split</strong>. A SIEM alert block carries two different things: the alert description and wrapper text (<code>message</code>, what the UI and RCA render) and the log evidence itself (<code>payload</code>, what the model and the training labeler read). Before the split, the network learned the SIEM's wrapper vocabulary, and 1,792 of 2,123 false positives were a single benign Cisco switch syslog scored <code>bruteforce</code>. After it, false positives dropped to 157.</p>
+
+  <h3>2. The in-memory <code>LogStore</code></h3>
+  <p>There is no database. <code>server/store/logStore.js</code> holds parsed entries, fingerprints, patterns and a preprocessor stream. Fingerprinting is the join key that makes everything downstream cheap: <code>normalize.fingerprint()</code> on the Python side and the same canonicalization in JS produce the same key, so upload and realtime paths dedupe identically.</p>
+
+  <h3>3. The rule engine &mdash; <code>server/rules/logRules.js</code></h3>
+  <p>Pure regex, no model, no I/O. It returns <code>{ category, severity, confidence, matchedRule, securityTypes, status }</code>. Two details that took real debugging: security matching runs against a URL-decoded copy as well as the original (access-log payloads are almost always percent-encoded, so <code>%3Cscript%3E</code> was invisible to the rules while the training-side labeler <em>did</em> decode &mdash; the two labelers disagreed); and <code>CREDENTIAL_PROBE</code> is <strong>shape-based</strong>, not a denylist. The old 22-item list matched bare words anywhere in the line, so <code>info</code>, <code>test</code> and <code>admin/</code> triggered T1552.001, and the username <code>info</code> made <code>Accepted publickey for info</code> a credential probe. Train-time and serve-time labelers must agree or the model learns one thing while the rules assert another.</p>
+
+  <h3>4. The ONNX deep classifier &mdash; second opinion only</h3>
+  <p><code>v2/runtime/onnx_classifier.js</code> loads <code>model.onnx</code> + <code>meta.json</code> through <code>onnxruntime-node</code>, in-process, on CPU. It serves both paths with the same model: <code>classifyLine()</code> for realtime, <code>classifyBatch()</code> for uploads. It always contributes its <code>attack_type</code>, but to call a line <code>Security</code> <em>on its own</em> &mdash; rules silent &mdash; it must clear <code>V2_SOLO_MIN_CONFIDENCE</code> (default <code>0.90</code>, <code>server/config/app.config.js:69</code>). Otherwise the event is tagged <code>v2Only</code> and stays non-alerting, and it never lowers the rule engine's confidence. A verdict is <code>argmax &rarr; that class's threshold &rarr; fire</code>, not one-vs-rest, so thresholds are tuned under the runtime's actual decision rule.</p>
+
+  <h3>5. The real-time hub</h3>
+  <p><code>server/realtime/realtimeHub.js</code> is the fan-out point. <code>ingestLine()</code> runs parser &rarr; rules &rarr; v2 &rarr; ATT&amp;CK mapping, then publishes SSE <code>attack</code> / <code>log</code> / <code>alert</code> frames, keeps a 250-entry ring buffer, and maintains counters, a 10s rolling rate and a 60s windowed alert threshold at <code>/api/realtime/snapshot</code>. Errors map to levels through a severity&rarr;level table so a rule-detected threat the parser logged as <code>info</code> still surfaces as an error. Telegram notifications are plain text with a 5s cooldown, so attacker-controlled content cannot break message parsing.</p>
+
+  <h3>6. Analysis services</h3>
+  <p><code>contextSelector</code> does the expensive reduction: fingerprint dedupe, time-window bucketing, stratified sampling, &plusmn;N context slicing, and causal-chain construction. <code>detectorService</code> blends the two detectors using a <em>dataset-level holdout</em> split, so validation measures generalization rather than memorization of one pooled corpus. <code>timelineService</code> and <code>localRootCauseService</code> consume that context.</p>
+
+  <h3>7. <code>server/mitre/attackMap.js</code> &mdash; one vocabulary, two detectors</h3>
+  <p><code>famKey()</code> normalizes a rule <code>securityType</code> (<code>SQL_INJECTION</code>) and a model <code>attack_type</code> (<code>sql-injection</code>, <code>bruteforce</code>) into the same family space, with <code>ALIASES</code> bridging spellings: <code>BRUTEFORCE&rarr;ADMIN_BRUTE_FORCE</code>, <code>XSS&rarr;XSS_PROBE</code>, <code>SCANNER&rarr;SCANNER_SIGNATURE</code>. That is the whole reason one map can serve both.</p>
+  <table>
+    <thead><tr><th>Family</th><th>Technique</th><th>Tactic</th></tr></thead>
+    <tbody>
+      <tr><td><code>CREDENTIAL_PROBE</code></td><td>T1552.001 Credentials In Files</td><td>Credential Access</td></tr>
+      <tr><td><code>PATH_TRAVERSAL</code>, <code>DIRECTORY_FORBIDDEN</code></td><td>T1083 File and Directory Discovery</td><td>Discovery</td></tr>
+      <tr><td><code>SQL_INJECTION</code></td><td>T1190 Exploit Public-Facing Application</td><td>Initial Access</td></tr>
+      <tr><td><code>ADMIN_BRUTE_FORCE</code>, <code>AUTH_FAILURE</code></td><td>T1110 Brute Force (T1110.001 Password Guessing)</td><td>Credential Access</td></tr>
+      <tr><td><code>XSS_PROBE</code></td><td>T1059.007 JavaScript</td><td>Execution</td></tr>
+      <tr><td><code>SCANNER_SIGNATURE</code></td><td>T1595 Active Scanning</td><td>Reconnaissance</td></tr>
+      <tr><td><code>NGINX_UPSTREAM_SCAN_SUSPECTED</code>, <code>NGINX_SSL_SCAN_SUSPECTED</code></td><td>T1595 Active Scanning (runtime-only, synthesized per source IP)</td><td>Reconnaissance</td></tr>
+      <tr><td><code>OTHER</code></td><td class="muted">null &mdash; no single technique is defensible</td><td class="muted">&mdash;</td></tr>
+    </tbody>
+  </table>
+  <p>Non-attack faults live in a <strong>separate <code>SYS-*</code> namespace</strong> and are never merged: <code>SYS-NGINX-UPSTREAM-DOWN</code>, <code>SYS-NGINX-UPSTREAM-TIMEOUT</code>, <code>SYS-TLS-HANDSHAKE</code>, <code>SYS-CONFIG-DRIFT</code>, <code>SYS-WORKER-CRITICAL</code>, <code>SYS-BACKEND-COMM</code>, <code>SYS-NETWORK-PATH</code>, <code>SYS-RESOURCE-EXHAUSTION</code>, <code>SYS-SERVICE-INSTABILITY</code>, <code>SYS-ROUTE-MISSING</code>, <code>SYS-CONFIG-INTEGRITY</code>, <code>SYS-STARTUP</code>. RCA returns two lists. <code>check:mitre</code> asserts the separation.</p>
+  <p>The label space is <strong>open</strong>: <code>config.is_valid_attack_type()</code> accepts any <code>T####</code> / <code>T####.###</code> id, and <code>techniqueFor()</code reports an unknown id as <code>{ id, name: id, tactic: "Unmapped" }</code> rather than inventing a name. A new annotated corpus adds classes with no code change.</p>
+
+  <h3>8. The vulnerable site</h3>
+  <p>A separate Express service that logs every request in Apache format, forwards it to <code>POST /api/realtime/ingest</code>, and declares the technique each route models. Those declarations arrive as <code>expectedTechniques</code> &mdash; ground truth only, never an input to classification.</p>
+
+  <h3>9. What the analysis path deliberately does not contain</h3>
+  <p>No LLM. <code>AIClient</code> exists and can be configured; with no API key the classifier and the narrative services fall back to their local implementations, which is the default and what CI exercises. An earlier version of the architecture doc wrongly claimed LLM-assisted analysis &mdash; that claim was removed because it was not true of the code.</p>
+</section>
+
+<section id="q3">
+  <h2>Q3 &mdash; Why was this architecture chosen over others?</h2>
+  <div class="summary"><strong>The one-line judgement:</strong> every structural choice here is a bet that a SIEM must be deterministic, auditable and self-contained. The model is deliberately fenced in as a bounded second opinion, because the cost of a false "this is an attack" in a SOC is much higher than the cost of a missed line the rules will catch anyway.</div>
+
+  <h4>(a) Rules are the PRIMARY detector, not a legacy fallback</h4>
+  <p>The rules key on payload <em>syntax</em> &mdash; <code>SELECT ... FROM</code>, <code>../</code>, <code>&lt;script&gt;</code>, <code>Invalid user</code> &mdash; not on domain vocabulary. That is why they read a SIEM dump in a format nobody anticipated. A model keyed on learned vocabulary degrades exactly where you need it most: an unfamiliar dump. So the model may <em>add</em> an attack type to a line the rules already flagged, but to classify a line as <code>Security</code> by itself it must clear <code>V2_SOLO_MIN_CONFIDENCE</code> (0.90); otherwise the event is retained as a non-alerting <code>v2Only</code> signal. Technique attribution follows the same hierarchy: when the rules matched, <em>their</em> families decide the technique. Otherwise a model that reads a SQL-injection payload as <code>bruteforce</code> bolts a wrong T1110 onto a correct T1190.</p>
+
+  <h4>(b) In-memory store, stateless services &mdash; because there is no database</h4>
+  <p>Deliberate, not a shortcut. A demo-scale SIEM that ingests a file and reports on it has no persistence requirement, and dropping a database removes a whole class of deployment failure on a free-tier box: no connection pool to exhaust, no migration to run, no state to lose. It forces every service to be a pure function of a log line, which is also what makes the seven verification gates reproducible &mdash; feed the same file, get the same report. The cost is real: history is bounded by the ring buffer, and multi-node deployment would need a real store. That is a Phase-2 decision, not a Phase-1 one.</p>
+
+  <h4>(c) ONNX + <code>onnxruntime-node</code> in-process, versus a Python sidecar or a hosted LLM</h4>
+  <p>Three alternatives, three rejections. A <strong>Python sidecar</strong> means a second runtime, a second dependency set, a port, an IPC serialization cost per line, and a process that can die mid-upload. A <strong>hosted LLM</strong> means the analysis path stops being deterministic, stops working offline, adds per-token cost and latency on a per-line workload, cannot be batch-evaluated against a stored baseline, and leaks log content off-box. An <strong>in-process INT8 ONNX graph on CPU</strong> has none of that: no network, no cold start beyond one session load, ~640 KB of artifact, and it runs on a free-tier Render box. The Python training code never ships &mdash; it runs offline in <code>v2/</code> and emits an artifact.</p>
+
+  <h4>(d) Deterministic local RCA over LLM narrative</h4>
+  <p><code>localRootCauseService</code> is a rule book: <code>PLAYBOOKS</code> keyed by family, <code>FAMILY_SCAN</code> regexes to extract concrete targets (routes, files, IPs) from raw logs, then <code>_techniques()</code> and <code>_recommendations()</code> built from those. Every attack recommendation carries a technique; every operational one carries a <code>SYS-*</code> error. That gives an analyst an <em>action</em> ("parameterize the dynamic SQL on <code>/product</code>; restrict the DB user to least privilege") rather than a paragraph, and it gives a test something to assert on. An LLM can only be judged by vibes; this can be asserted by <code>check:mitre</code>.</p>
+
+  <h4>(e) One normalized family space, so one ATT&amp;CK map serves both detectors</h4>
+  <p>The alternative &mdash; a rule-to-technique map and a separate model-to-technique map &mdash; guarantees divergence: two lookups to keep in sync, two chances to label the same event differently depending on which detector fired. Normalizing both into <code>famKey()</code> space with three aliases means there is exactly one place where "what technique is a SQL injection" is written down. It also makes the label space open: an annotated corpus that ships <code>T1021.002</code> rows adds a class with zero code change, because the attack head is sized from <code>labels.json</code> and the runtime reads whatever <code>meta.json</code> contains.</p>
+
+  <h4>(f) A separate <code>SYS-*</code> namespace instead of forcing everything into ATT&amp;CK</h4>
+  <p>An nginx upstream timeout is an operational fault. Calling it T1190 is not a simplification, it is a false statement that an analyst will act on &mdash; and it poisons every downstream metric built on technique counts. So RCA returns two lists that are never merged: <code>techniques[]</code> and <code>systemErrors[]</code>. The nginx system errors that were escalated to <code>Security</code> are exactly the bug this separation exists to prevent.</p>
+
+  <h3>The trade-off I accepted</h3>
+  <div class="summary"><strong>A closed-class model cannot be dump-agnostic, so the rules carry the load.</strong> The attack head is a softmax over a finite label set read from <code>labels.json</code>. A novel attack that matches no class is forced into <code>other</code> by definition. No amount of threshold tuning fixes that; it is a property of the output layer. I accepted it deliberately, because the alternative &mdash; an open-vocabulary embedding model &mdash; would need a hosted API, break offline operation, and make ATT&amp;CK mapping unresolvable at inference time. The mitigation is structural: the rules are format-agnostic and stay primary, the model only escalates above 0.90 solo confidence, and the open <code>T####</code> label space means new <em>known</em> techniques are a data change rather than a code change. Unknown-unknowns are the rules' job; the model covers known-unknowns better than regex does.</div>
+
+  <h3>Bugs found and fixed &mdash; the evidence for the above</h3>
+  <p>These are the concrete results of holding the architecture to its own claims:</p>
+  <ul>
+    <li><strong>A sentinel verdict masquerading as a real one.</strong> A <code>attack_type: "rule"</code> was written into the v2 verdict registry for rule-only hits, so consumers read it as a deep-model verdict: the timeline printed <em>"Deep classifier detected rule attack (0.0% confidence)"</em> and nginx system errors were escalated to <code>Security</code>. Fixed at the source; <code>check:join</code> now guards the invariant that the registry holds only real model verdicts.</li>
+    <li><strong>The model was classifying the SIEM envelope, not the log.</strong> 1,792 of 2,123 false positives were one benign Cisco switch syslog scored <code>bruteforce</code>. Fixed by splitting <code>message</code> from <code>payload</code> and training on the payload.</li>
+    <li><strong>The exporter never wrote <code>attack_thresholds</code>.</strong> The file was hand-edited, so any re-export silently deleted the tuned per-class values &mdash; and because <code>onnx_classifier.js:121</code> falls back to <code>attack_threshold</code> (the strictest bar in the file) for any missing class, every newly trained class would have been effectively undetectable. The exporter now emits an entry for every class, and the fallback warns instead of absorbing the inconsistency.</li>
+    <li><strong>INT8 quantization was silently skipped on every export.</strong> Two independent causes: the torch dynamo exporter emitted shape metadata the quantizer rejected (<code>Inferred shape and existing shape differ in dimension 0: (256) vs (7)</code>), fixed with <code>dynamo=False</code>; and default shape inference compared the sequence dim against the class dim, fixed with <code>MatMulConstBOnly: True</code>. The artifact was ~1.2 MB FP32 where ~640 KB was intended.</li>
+    <li><strong><code>formatTimelineTimestamp()</code> returned <code>""</code></strong> &mdash; so every event in a timestamp-less log shipped a blank timestamp. This was failing the project's own smoke test.</li>
+    <li><strong>Rule gaps found while building the real-time path:</strong> the SQLi rule required <code>OR</code> followed by a digit and so missed the canonical <code>OR '1'='1</code>; security matching did not URL-decode, so <code>%3Cscript%3E</code> was invisible; <code>CREDENTIAL_PROBE</code> matched bare words like <code>info</code>/<code>test</code>/<code>admin/</code>.</li>
+  </ul>
+</section>
+
+<section id="q4">
+  <h2>Q4 &mdash; What would you like to improve in this project?</h2>
+  <div class="summary"><strong>Short version:</strong> one packaging bug that breaks deployment, one architectural coupling that makes part of the label space unreachable, and a corpus-volume problem that no amount of code will fix. Listed in that order, because the first blocks everything else.</div>
+
+  <h4>1. <code>v2</code> is a stale gitlink &mdash; the model cannot reach Render from a fresh clone</h4>
+  <p><code>git ls-files -s</code> shows <code>160000 bad021903a7ecacc3dca20eed1c3a14ee7875b46 0 v2</code>: <code>v2</code> is recorded as a submodule, but there is no <code>v2/.git</code> and no <code>.gitmodules</code>. The model is therefore untracked, and a fresh clone cannot build the artifact the service needs at boot. Fix: convert the entry to a normal tracked directory (<code>git rm --cached v2</code>, then commit <code>v2/</code> with an <code>.gitignore</code> that excludes <code>datasets/</code> and <code>data/</code> and keeps <code>runtime/model.onnx</code> + <code>runtime/meta.json</code> &mdash; those are the only two files the Node runtime reads), or restore a real submodule with a <code>.gitmodules</code> and a pinned commit. I prefer the flat directory: it is one less moving part, and the model is small enough to live in the repo.</p>
+
+  <h4>2. The technique head is coupled to <code>is_attack</code></h4>
+  <p>This is the next architectural step, not a bug. In <code>v2/train/models.py</code>, <code>is_attack</code> is <em>derived</em> at runtime as <code>attack_type != "none"</code> &mdash; a single head holds both the binary decision and the subtype. The consequence: the ~10 techniques annotated on <em>non-attack</em> rows &mdash; T1595 Active Scanning, T1082 System Information Discovery, T1583 Acquire Infrastructure, T1053, T1562, T1071, T1005, T1059 &mdash; are unreachable by construction. Discovery and resource-development techniques are, by ATT&amp;CK's own definition, frequently benign in isolation, and this head can never emit them. Proposed change: a fourth head, <code>technique_head</code>, trained against its own label set independent of the attack decision, with a gate on whether the technique is emitted at all. The serving side is ready &mdash; <code>attackMap.BY_ID</code> already carries those ids and the runtime reads the label space from <code>meta.json</code> &mdash; so this is a training-graph change plus one more output tensor in the ONNX signature.</p>
+
+  <h4>3. Five technique classes are volume-starved</h4>
+  <p>T1486 (Data Encrypted for Impact), T1041 (Exfiltration Over C2), T1021 (Remote Services), T1110 (Brute Force) and T1068 (Exploitation for Priv Esc) have only 30&ndash;60 labelled rows each. <code>prep/dataset.py</code> auto-demotes anything under the <code>V2_MIN_CLASS_ROWS</code> floor (default 200) into <code>other</code>, so these occupy no output slot rather than becoming confident noise. This needs corpus volume, not code. Next step: per-technique generation in each source corpus's own line shape &mdash; exactly the move that took brute force from ~186 to 799 rows and Wazuh recall from 0% to 100% &mdash; plus active collection from the OSSEC/Wazuh rule packs that already carry technique annotations.</p>
+
+  <h4>4. The brute-force fix needs re-validation</h4>
+  <p>The class was historically thin. The fix was to generate auth rows in the corpus's own shapes (<code>_gen_auth_rows</code> in <code>v2/ingest/normalize.py</code>, driven by <code>V2_AUTH_ROWS</code>, with the label re-derived by the same heuristic that labels the real corpus so synthetic and real rows cannot disagree), taking it to 799 rows. It produced 100% Wazuh recall, but that is measured on the generated distribution. It needs a held-out Wazuh dump that was not in the corpus at all before I claim it generalizes.</p>
+
+  <h4>5. <code>other</code> is still a grab-bag at ~0% recall</h4>
+  <p>Its share fell from 45% to ~10.6% of the corpus, but the class itself is close to unlearnable &mdash; it is a union of unrelated things, so nothing generalizes into it and the model learns nothing from it. Better: keep demotion as the safety valve, but split the residual into a small number of real classes as evidence accumulates, and treat any class whose recall stays near zero as a prompt to delete it rather than ship it.</p>
+
+  <h4>6. Small cleanups</h4>
+  <ul>
+    <li><code>v2/runtime/onnx_export.py</code> is a dead <code>transformers</code> scaffold. The real exporter is <code>v2/export/export_onnx.py</code>. Delete it &mdash; a second "how to export the model" file that does not work is worse than no file.</li>
+    <li><code>v2/runtime/meta.json</code> still carries the category label <code>Unknown</code> while the app now shows <code>Clean</code>. The meta is the model's label space, so either the model is retrained with the new label or the UI maps back; right now the two disagree on the same word.</li>
+    <li><code>client/src/views/DemoView.jsx</code> is an orphan &mdash; superseded by <code>DemoLabView.jsx</code> and no longer routed.</li>
+  </ul>
+
+  <h4>Proposed order of work</h4>
+  <ol>
+    <li>Fix the gitlink (unblocks deploy; minutes).</li>
+    <li>Retrain once with the current corpus and re-run the full gate set, so Q4&rsquo;s claims sit on a fresh <code>check:model</code> baseline rather than an older run.</li>
+    <li>Decouple the technique head from <code>is_attack</code> &mdash; the one change that makes 10 annotated classes reachable.</li>
+    <li>Grow the five starved technique classes in their own line shapes; re-measure per-class holdout recall.</li>
+    <li>Add a hash-n-gram side channel (see Q5) and A/B it against the pure-byte model on the same holdout.</li>
+    <li>Land the cleanups.</li>
+  </ol>
+</section>
+
+<section id="q5">
+  <h2>Q5 &mdash; How is model training, datasets, understanding why LSTM is used?</h2>
+  <div class="summary"><strong>Short version:</strong> heterogeneous public and local log corpora are normalized into one ballot, tensorized into a 256-char byte window, trained offline in PyTorch as a 617k-parameter bidirectional char-LSTM with three heads, exported to a 640 KB INT8 ONNX graph with tuned per-class thresholds, and loaded in-process by Node. Character-level input is the choice that removes the vocabulary problem entirely.</div>
+
+  <h3>The pipeline</h3>
+  <pre><code>v2/ingest/*            fetch + normalize raw corpora
+  hf_ingest.py          HuggingFace web-attack sets
+  kaggle_ingest.py      Kaggle malicious/phish URL sets
+  loghub_ingest.py      Loghub Apache / OpenSSH / NASA
+  ossec_ingest.py       local OSSEC alert blocks
+  wazuh_ingest.py       local Wazuh alerts
+        |
+        v
+v2/ingest/normalize.py -> data/ballot.jsonl     one row per line:
+        |                                        {is_attack, attack_type, category,
+        |                                         severity, message, payload}
+        v
+v2/prep/dataset.py      -> data/labels.json + train.pt / val.pt
+        |               tensors + label maps, holdout split, class demotion
+        v
+v2/train/train_deep.py  MultiHeadSequenceNet (torch)  -> data/best.pt
+        |
+        v
+v2/export/export_onnx.py -> v2/runtime/model.onnx (INT8) + meta.json
+        |
+        v
+v2/runtime/onnx_classifier.js   onnxruntime-node, CPU, in-process</code></pre>
+
+  <h3>Corpora</h3>
+  <p><strong>Attack:</strong> HuggingFace web-attack detection sets, Kaggle malicious/phish URL datasets, plus synthetic obfuscation (<code>_obfuscate()</code> &mdash; base64, URL-encoding, comment insertion) and hand-shaped syslog/nginx/SIEM attack templates. <strong>Benign:</strong> Loghub (LogPAI) Apache, OpenSSH and NASA HTTP for real operational baselines, plus local OSSEC/Wazuh ingest and a set of plain request lines. The benign side is the part that was originally missing, and adding it is what took the benign false-positive rate from 10.28% to 2.17%.</p>
+  <p>Labeling for unlabeled data is done by a deliberately obfuscation-tolerant heuristic in <code>normalize.py</code> that URL-decodes before matching, so it labels the same text the serving rules see. <code>prep/dataset.py</code> then trains on <code>payload</code> when present and <code>message</code> otherwise, so the model never learns a SIEM wrapper.</p>
+
+  <h3>Label space</h3>
+  <p>Seven attack classes plus <code>none</code>: <code>sql-injection</code>, <code>xss</code>, <code>path-traversal</code>, <code>bruteforce</code>, <code>scanner</code>, <code>credential_probe</code>, <code>other</code>, with <code>none</code> at index 0. Two things make it forward-compatible: <code>attack_index</code> in <code>meta.json</code> is <strong>data-driven</strong> &mdash; built from the labels the corpus actually contains, not a hardcoded list &mdash; and <code>config.is_valid_attack_type()</code> accepts any <code>T####</code>/<code>T####.###</code>. So ATT&amp;CK technique ids are first-class <code>attack_type</code> values, and a new annotated source adds classes with no code change. The old hardcoded membership test silently folded all of them into <code>other</code>, which is a large part of how <code>other</code> reached 45% of the corpus.</p>
+
+  <h3>Hyperparameters</h3>
+  <table>
+    <thead><tr><th>Knob</th><th>Value</th><th>Where</th></tr></thead>
+    <tbody>
+      <tr><td>Input</td><td>256 characters, byte-level (base 256), PAD 0 / UNK 1</td><td><code>config.MAX_LEN</code></td></tr>
+      <tr><td>Vocabulary</td><td class="num">258</td><td><code>models.build_model</code> &mdash; bytes 0..255 + PAD + UNK</td></tr>
+      <tr><td>Embedding</td><td class="num">64</td><td><code>config.EMB_DIM</code></td></tr>
+      <tr><td>Encoder</td><td>2-layer <strong>bidirectional</strong> LSTM, hidden 128</td><td><code>config.LAYERS</code>, <code>config.HIDDEN</code></td></tr>
+      <tr><td>Pooling</td><td>Masked mean over sequence</td><td><code>models.py</code> &mdash; mask derived from <code>ids != 0</code></td></tr>
+      <tr><td>Heads</td><td>attack / category / severity (3 linear heads)</td><td><code>MultiHeadSequenceNet</code></td></tr>
+      <tr><td>Parameters</td><td class="num">~617k (96.5% in the encoder)</td><td>printed by <code>train_deep.py</code></td></tr>
+      <tr><td>Training</td><td>AdamW, lr 1e-3, wd 1e-4, cosine schedule, dropout 0.3, grad clip 1.0, batch 128, 20 epochs</td><td><code>config.py</code>, <code>train_deep.py</code></td></tr>
+      <tr><td>Class balance</td><td>Inverse-frequency weights on the attack head</td><td><code>config.CLASS_BALANCE</code></td></tr>
+      <tr><td>Serving artifact</td><td>INT8 dynamic quantization, <code>MatMulConstBOnly</code>, ~640 KB</td><td><code>export_onnx.py</code></td></tr>
+    </tbody>
+  </table>
+  <p>Masked pooling was itself a fix. The original <code>x.mean(dim=1)</code> averaged PAD positions in, so a typical 176-char line contributed ~31% of a 256-wide window &mdash; the pooled vector was length-dependent and shifted off-manifold on log formats of a different length. Deriving the mask from the ids (rather than adding a second graph input) keeps the ONNX signature at one input, so <code>onnx_classifier.js</code> needed no change.</p>
+
+  <h3>Validation, and why the split is not random</h3>
+  <div class="summary"><strong>The gate that changed how I measure.</strong> A prior retrain scored <strong>0.983</strong> on the old in-domain validation split while its cross-domain false-positive rate got <em>worse</em> (10.8% &rarr; 14.8%) and recall fell (90.4% &rarr; 73.0%). A random-row split literally cannot see that failure, so <code>prep/dataset.py</code> now holds out a <em>fraction</em> of every dataset (<code>HOLDOUT_FRACTION</code>, 0.15) plus one small fully-unseen domain (<code>HOLDOUT_EXCLUDE</code>, <code>wazuh-tpfp</code>), and <code>npm run check:model</code> is a cross-domain gate against a stored baseline. Holding out 100% of SIEM data while expecting SIEM detection is incoherent and measurably so: that configuration reached train F1 0.989 and holdout F1 0.417 with 1,998 false positives, because its only exposure to syslog/OSSEC line shapes was ~25 synthetic seeds.</div>
+  <p>Groups are split by <code>src_ip</code>/<code>host</code> (falling back to fingerprint), so one attacker's events never straddle the boundary. Thresholds are calibrated in <code>export_onnx.py</code> on that same holdout, under the runtime's actual <code>argmax &rarr; threshold &rarr; fire</code> decision rule: per-class one-vs-rest tuning measured F1 of 0.02&ndash;0.36 for every class because it optimizes the wrong objective, so it sweeps a global binary-F1 threshold, then does two coordinate-ascent passes. The resulting per-class values are written to <code>meta.json</code>.</p>
+
+  <h3>Why an LSTM, and why at the character level</h3>
+  <p>Three reasons, in order of how much they mattered.</p>
+  <p><strong>1. No vocabulary, therefore no OOV problem.</strong> Input is raw bytes, base 256, with a 258-slot embedding (bytes + PAD + UNK). There is no vocabulary file, no tokenizer drift between Python and Node, and nothing to maintain as new logs appear. Unseen source IPs, novel paths, new encodings, mixed languages and unusual punctuation all tokenize because they are just bytes. <code>check:tokenizer</code> exists to keep the Python trainer and the JS runtime bit-identical; with byte-level input that check is nearly free, which is part of the point.</p>
+  <p><strong>2. Attack signatures are local substrings, and an LSTM reads them in order.</strong> <code>OR '1'='1</code>, <code>../</code>, <code>Invalid user</code> &mdash; the evidence is a short ordered character run embedded in a longer line. A bidirectional LSTM builds context from both directions over that run while mean-pooling collapses the whole 256-char window into one vector, so a payload anywhere in the line is visible regardless of position. That is also why the masked-mean fix mattered: without it, position and length changed the pooled representation.</p>
+  <p><strong>3. It fits the deployment budget.</strong> ~617k parameters, 96.5% of them in the encoder, quantizing to a 640 KB INT8 graph that runs on CPU in-process. A transformer encoder over characters is a plausible alternative &mdash; the code even keeps the branch &mdash; but at this parameter count the LSTM is the better fit: it trains on a small corpus without over-parameterizing, exports cleanly to ONNX, and quantizes well. I would revisit the transformer only with a substantially larger corpus.</p>
+
+  <h3>The trade-off I found, honestly</h3>
+  <p>Byte-level input with a <strong>64-dim embedding</strong> has a real cost: every keyword must be learned character-by-character from <em>shared, overloaded</em> byte embeddings. The embedding table has 258 rows &times; 64 dims, and the same 256 rows carry <code>'</code> in a SQLi payload, the <code>'</code> in a shell-quoted syslog string, and the <code>'</code> in English prose. A 617k-parameter model has to learn the phrase "this byte sequence in this context means SQL injection" from scratch, and it has to relearn it for every log format, because the context that gives the byte meaning changes when the line format changes. I believe that is a plausible cause of the weak cross-format generalization measured in Q3's gate &mdash; in-domain numbers look excellent while the held-out SIEM FP rate does not move.</p>
+  <p>The proposed fix is a <strong>hash-n-gram side channel</strong>: a second input of hashed character n-grams (say 3&ndash;5) computed with a fixed, code-free hash, so multi-character patterns get their own embedding rows instead of being reconstructed from shared bytes. It is a few lines in preprocessing plus one more input tensor, it survives ONNX export, and it needs no vocabulary file &mdash; which was the whole reason for choosing byte-level input in the first place. The decision rule is to A/B it on the same holdout with the same gate: if it does not beat the pure-byte model on cross-domain FP rate and per-class recall, it does not ship.</p>
+</section>
+
+<footer>Grounded in <code>docs/architecture.md</code>, <code>server/mitre/attackMap.js</code>, <code>server/rules/logRules.js</code>, <code>server/realtime/realtimeHub.js</code>, <code>server/services/localRootCauseService.js</code>, and <code>v2/{config.py, prep/dataset.py, train/models.py, train/train_deep.py, export/export_onnx.py, runtime/onnx_classifier.js, ingest/normalize.py}</code>. Single file, no network, no external assets.</footer>
+
+</div>
+</body>
+</html>
