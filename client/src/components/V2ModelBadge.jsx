@@ -43,11 +43,17 @@ export default function V2ModelBadge() {
     error: 'border-red-900/70 bg-red-500/10 text-red-300',
   }[state.kind];
 
-  const label = {
-    on: `v2 model · ${state.labels.length} classes`,
-    off: 'v2 model off',
-    error: 'v2 model unavailable',
-  }[state.kind];
+  // Deliberately a nested ternary, not an object literal keyed by state.kind:
+  // an object literal evaluates every value, so the `on` branch would read
+  // state.labels.length even when the badge is in the off/error state, where
+  // labels was never set -- throwing "cannot read properties of undefined" and
+  // taking the whole view down.
+  const label =
+    state.kind === 'on'
+      ? `v2 model · ${state.labels.length} classes`
+      : state.kind === 'off'
+        ? 'v2 model off'
+        : 'v2 model unavailable';
 
   const title =
     state.kind === 'on'
