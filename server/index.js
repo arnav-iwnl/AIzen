@@ -35,28 +35,31 @@ const app = express();
 // 1. Request timer — must be first to capture full processing time
 app.use(requestTimer);
 
-// 2. CORS — allow configured frontend and vulnerable-site origins.
-let allowedOrigins = [config.frontendUrl, config.vulnerableSiteUrl].filter(Boolean);
+// 2. CORS — allow configured frontend and vulnerable-site origins, plus the
+// Vercel-hosted frontend (aizen-siem) even if FRONTEND_URL differs.
+const allowedOrigins = [...new Set([
+  config.frontendUrl,
+  config.vulnerableSiteUrl,
+  'https://aizen-siem.vercel.app',
+].filter(Boolean))];
 
-// In non-production allow local dev origins for convenience
-if (config.nodeEnv !== 'production') {
-  allowedOrigins = allowedOrigins.concat([
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-  ]).filter(Boolean);
-}
-
-// Vercel-hosted frontend (aizen-siem) — allow even if FRONTEND_URL differs
-allowedOrigins.push('https://aizen-siem.vercel.app');
-allowedOrigins = [...new Set(allowedOrigins.filter(Boolean))];
+// Local dev origins are NOT enumerated. Vite takes the next free port when 5173
+// is busy, so a hardcoded 5173/3000 list broke with "CORS not allowed for
+// origin: http://localhost:5174" every time another dev server took the slot.
+// Match any loopback port instead, and only outside production -- see the
+// origin callback below, which is the single place this is enforced.
+const DEV_LOOPBACK = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 
 app.use(cors({
   origin: (origin, callback) => {
     // Allow same-origin requests from tools (no origin) and allowed origins
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
+    // Any loopback port in dev. Deliberately gated on nodeEnv so production
+    // keeps an exact-match allowlist and never inherits this leniency.
+    if (config.nodeEnv !== 'production' && DEV_LOOPBACK.test(origin)) {
+      return callback(null, true);
+    }
 
     callback(new Error(`CORS not allowed for origin: ${origin}`));
   },
