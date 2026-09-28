@@ -33,8 +33,14 @@ try {
 
 const V2_ROOT = path.resolve(__dirname, '..');
 const DATASETS_DIR = path.join(V2_ROOT, 'datasets');
-const RUNTIME_DIR = path.join(V2_ROOT, 'runtime');
 const DATA_DIR = path.join(V2_ROOT, 'data');
+
+// The classifier resolves model.onnx / meta.json against its OWN directory
+// (v2/runtime/onnx_classifier.js:21-22), so that is the only place a download
+// does any good. This used to point at server/runtime/, which nothing in the
+// codebase reads -- so a fresh clone downloaded the model somewhere harmless and
+// still booted with v2 disabled, with nothing in the logs to explain it.
+const RUNTIME_DIR = path.resolve(__dirname, '../../v2/runtime');
 
 // Default source for the runtime. Public repo, so no env var is required to boot.
 const RUNTIME_BASE = (process.env.V2_RUNTIME_BASE || 'https://huggingface.co/dr0wzy/aizen-siem/resolve/main')

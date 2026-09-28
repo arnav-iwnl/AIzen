@@ -29,11 +29,6 @@ training-data/
 # `160000` gitlink with no .gitmodules and no v2/.git, which left the model
 # untracked and unreachable from a fresh clone. Per-file rules live in v2/.gitignore.
 
-# Model artifacts fetched at boot by server/services/datasetDownloader.js.
-# These are byte-identical copies of v2/runtime/*, which IS committed; the server
-# downloads them into server/runtime/ on first start. Nothing reads them from git.
-server/runtime/
-
 # Temp
 tmp/
 temp/
